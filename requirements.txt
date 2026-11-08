@@ -1,0 +1,13 @@
+# Experiment runner (experiments/runner)
+duckdb==1.2.1
+datafusion==55.0.0
+pandas==2.3.3
+pyyaml==6.0.3
+polars==1.42.1
+pyarrow==26.0.1
+
+# Visualization (visualization/)
+numpy==2.5.4
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1

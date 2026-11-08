@@ -1,0 +1,55 @@
+experimental_setup:
+  # path to the rust binary that is used for rewriting parquet files
+  path_to_executable: /path_to_executable
+  table_name: redd
+  # error bounds used for bit rewriting the values using pointwise error bound. 
+  # Setting `error_bound` to  [0] will do lossless compression 
+  # i.e., only rewrite the given parquet using the defined configurations
+  error_bound: [0, 0.01, 0.1, 1, 5, 10]
+  path_to_table_files: /data/redd/
+  path_to_save: /data/save_data/
+  path_to_metadata_database: /path/to/sqlite_db
+  # number of queries that should be created per select `interval`
+  # `interval` starts from 1 and increases by order of magnitude until 
+  # it exceeds dataset's size
+  query_sample_size_per_interval: 100
+
+configurations:
+  manual:
+    - bloom_filter_enabled: false
+
+    - compression: zstd
+      compression_level: 1
+
+    - compression: gzip 
+      compression_level: 7
+
+    - compression: brotli
+      compression_level: 4
+
+    - max_row_group_size: 2536
+
+  # isolated experiments to try iteratively
+  isolated:
+    bloom_filter_enabled:
+      - true
+
+    compression:
+      zstd: [1, 4, 7, 15, 22]
+      brotli: [1, 4, 8, 11]
+      lz4: null
+    
+    data_page_size_limit:
+      - 1024
+      - 10240
+      - 102400
+      - 1048576
+
+    dictionary_enabled:
+      - true
+
+    max_row_group_size:
+      - 10240
+      - 102400
+      - 512000
+
