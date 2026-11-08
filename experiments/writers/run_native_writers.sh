@@ -26,7 +26,7 @@ WRITERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$WRITERS_DIR/../.." && pwd)"
 DATA_DIR="$REPO_ROOT/data"
 
-DATASETS="${*:-redd}"
+DATASETS="${*:-blued greend redd neon_wind}"
 WRITERS="${WRITERS:-cpp go java rust}"
 OUTPUT_DIR="${OUTPUT_DIR:-$WRITERS_DIR/outputs}"
 KEEP_OUTPUTS="${KEEP_OUTPUTS:-0}"
