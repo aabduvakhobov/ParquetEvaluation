@@ -1,0 +1,26 @@
+# Build outputs
+target/
+build/
+experiments/writers/go/parquet-writer-go
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local configuration
+experiments/scripts/paths.env
+experiments/runner/configurations.yaml
+
+# Experiment outputs
+*.log
+*.logs
+*.db
+*.parquet.crc
+experiment_logs.jsonl
+queries/
+outputs/
+pareto_results/
+visualization/figures/*
+!visualization/figures/.gitkeep
+
+# Datasets (see README: download link)
+data/

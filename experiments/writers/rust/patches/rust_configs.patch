@@ -1,0 +1,56 @@
+diff --git a/experiments/writers/rust/src/dataset_configurable.rs b/experiments/writers/rust/src/dataset_configurable.rs
+index 2490133..1b3bc5d 100644
+--- a/experiments/writers/rust/src/dataset_configurable.rs
++++ b/experiments/writers/rust/src/dataset_configurable.rs
+@@ -33,11 +33,11 @@ pub const DEFAULT_ENCODING: Encoding = Encoding::PLAIN;
+ pub const WRITE_BATCH_SIZE: usize = 1024;
+ pub const READ_BATCH_SIZE: usize = 1024;
+ pub const DEFAULT_MAX_ROW_GROUP_SIZE: usize = 1024 * 1024;
+-pub const STATISTICS_ENABLED: EnabledStatistics = EnabledStatistics::None;
++pub const STATISTICS_ENABLED: EnabledStatistics = EnabledStatistics::Page;
+ // Based on number of bytes
+ pub const DEFAULT_DATA_PAGE_SIZE_LIMIT: usize = 1024 * 1024;
+ pub const BLOOM_FILTER_ENABLED: bool = false;
+-pub const DICTIONARY_ENABLED: bool = false;
++pub const DICTIONARY_ENABLED: bool = true;
+ 
+ pub struct UserInputDataset {
+     pub dataset_name: String,
+@@ -228,6 +228,24 @@ impl Dataset {
+         Ok(dataset)
+     }
+ 
++    pub fn create_parquet_writer_properties_default_implementation(&self) -> Arc<WriterProperties> {
++        let writer_properties = 
++                WriterProperties::builder()
++                    .set_data_page_size_limit(self.data_page_size_limit)
++                    .set_dictionary_page_size_limit(self.data_page_size_limit)
++                    .set_max_row_group_row_count(Some(self.max_row_group_size))
++                    .set_bloom_filter_enabled(self.bloom_filter_enabled)
++                    .set_dictionary_enabled(self.dictionary_enabled)
++                    .set_sorting_columns(None)
++                    .set_statistics_enabled(self.statistics_enabled)
++                    .set_write_batch_size(1024)
++                    .set_offset_index_disabled(self.offset_index_disabled)
++                    // set column encoding
++                    // set column compression
++                    .set_compression(self.compression)
++                    .build();
++        Arc::new(writer_properties)
++}
+     pub fn write_dataset_struct_parameters_to_sqlite(
+         &self,
+         sqlite_path: &str,
+diff --git a/experiments/writers/rust/src/native_writer.rs b/experiments/writers/rust/src/native_writer.rs
+index fd2718a..ec320bd 100644
+--- a/experiments/writers/rust/src/native_writer.rs
++++ b/experiments/writers/rust/src/native_writer.rs
+@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
+     let output_file = File::create(Path::new(&verified_dataset.file_save_path).join(&verified_dataset.unique_file_name))?;
+ 
+     let writer_properties = verified_dataset
+-        .create_parquet_writer_properties_single_file()
++        .create_parquet_writer_properties_default_implementation()
+         .clone();
+ 
+     // Write the actual writer parameters to the database
