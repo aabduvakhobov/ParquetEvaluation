@@ -22,16 +22,51 @@ We find that currently used default configurations of Parquet implementations do
 | [visualization/](visualization/) | Figure generation for the paper. |
 
 # Environment Setup
-Toolchains needed to build the Parquet writers, with the versions they were tested with:
+The experiments were run on Linux (x86-64, Ubuntu 24.04). The writers in Rust, C++, Go and Java are built from source, so you need a toolchain for each of them. The scripts also need `git`, which applies the patches in `experiments/writers/rust/patches/`, and `python3`.
 
-| Writer | Requirements | Tested with |
+## Prerequisites
+
+| Writer | Required | Tested with |
 |---|---|---|
-| Rust | Rust with edition 2024 support (1.85 or newer) | rustc 1.96.0 |
-| C++ | CMake 3.18+, a C/C++17 compiler, internet on first build. Arrow C++ is downloaded and built automatically, and the binary is fully static; see [experiments/writers/cpp](experiments/writers/cpp/README.md). | g++ 13.3, CMake 3.28, Arrow 26.0.0.dev (`68c8cec`) |
+| Rust | Rust 1.85 or newer (edition 2024) with Cargo; a C compiler, because SQLite is compiled into the binary (`rusqlite` with the `bundled` feature) | rustc / cargo 1.96.0 |
+| C++ | CMake 3.18 or newer; a C and C++17 compiler; `make` or Ninja; static glibc (`libc6-dev` / `glibc-static`); internet access on the first build | g++ 13.3.0, CMake 3.28.3, glibc 2.39 |
 | Go | Go 1.26.5 or newer (from `go.mod`) | go 1.26.5 |
-| Java | **Java 21** and Maven 3.9+ | OpenJDK 21.0.12, Maven 3.9.16 |
+| Java | **Java 21** (JDK) and Maven 3.9 or newer | OpenJDK 21.0.12, Maven 3.9.16 |
+| Runner, figures | Python 3.10 or newer, with the packages in [requirements.txt](requirements.txt) | Python 3.12.3 |
 
-Python 3 with the packages in [requirements.txt](requirements.txt):
+You don't need to install Arrow C++ or SQLite. On the first configure, the C++ build downloads Arrow C++ (commit `68c8cec`, `apache-arrow-26.0.0.dev-10`) and the SQLite amalgamation, checks both against SHA-256 hashes, and builds them with their bundled dependencies. This takes a while; on a 16-core machine allow several minutes. The result is a fully static binary; see [experiments/writers/cpp/README.md](experiments/writers/cpp/README.md). The Go and Java dependencies, including SQLite, are downloaded by `go build` and `mvn package`.
+
+### Installation on Ubuntu/Debian
+
+```bash
+# C/C++ compiler, make, static glibc, CMake, git
+sudo apt install build-essential cmake git
+
+# Rust (rustup installs the latest stable toolchain)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Java 21 and Maven (use Maven from https://maven.apache.org if your distribution's is older than 3.9)
+sudo apt install openjdk-21-jdk maven
+
+# Go: the distribution package is usually older than 1.26.5, so install it from https://go.dev/dl/
+curl -LO https://go.dev/dl/go1.26.5.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.5.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+```
+
+Check the versions:
+
+```bash
+rustc --version && cargo --version
+g++ --version && cmake --version
+go version
+java -version && mvn -v
+```
+
+Once the toolchains are installed, [experiments/writers/run_native_writers.sh](experiments/writers/run_native_writers.sh) builds all four writers. To build them one by one, see [experiments/README.md](experiments/README.md#1-build-the-writers).
+
+## Python packages
+Install the packages in [requirements.txt](requirements.txt):
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -48,7 +83,9 @@ The following table shows the summary of datasets used in the experiments.
 | REDD | ~83M | ~110 ms | 1 | 651 MB | ~42 days | 32-bit float | 0 |
 | NEON Wind | ~198M | ~2 m | 3 | 2 GB | ~7 years | 32-bit float | 0 |
 
-We uploaded pre-processed versions of all the datasets in this repository [link](). 
+You can find pre-processed versions of all the datasets from the [Harvard Dataverse repository](https://doi.org/10.7910/DVN/SZAHLT).
+
+Citation: `Abduvakhobov, Abduvoris; Jensen, Søren Kejser; Thomsen, Christian; Torben Bach Pedersen, 2026, "Replication Data for: In-depth Evaluation of Parquet for Large Sensor Datasets", https://doi.org/10.7910/DVN/SZAHLT, Harvard Dataverse, V2`
 
 
 # Running Experiments
