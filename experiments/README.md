@@ -32,7 +32,7 @@ The C++ build downloads and compiles the Arrow C++ version used in the paper by 
 
 ```bash
 ./scripts/run_native_writers.sh redd                        # build all writers, run them on data/<dataset>/
-./scripts/run_low_level_rust_with_default_configs.sh redd   # C++/Go/Java/Rust defaults emulated in low-level-writer
+./scripts/run_low_level_rust_with_default_configs.sh redd   # C++/Go/Java/Rust defaults emulated in low-level-writer, then queried
 ./scripts/run_default_writers.sh            # cpp go java rust; ingestion times in scripts/default_writers.logs
 ```
 
@@ -53,15 +53,23 @@ Each run appends one row to the `writer_runs` table, which the writer creates if
 
 [run_native_writers.sh](scripts/run_native_writers.sh) first compiles all four writers. It then runs each one on the Parquet files in `<repo>/data/<dataset>/`, and passes all of them the same database file, `writers/default_writers.db`, or `$SQLITE_DB` if set. By default the written Parquet files are deleted once their run is recorded; set `KEEP_OUTPUTS=1` to keep them in `writers/outputs/`. The other options are listed at the top of the script.
 
-[run_low_level_rust_with_default_configs.sh](scripts/run_low_level_rust_with_default_configs.sh) emulates each implementation's defaults with `low-level-writer`. For each patch in [writers/rust/patches/](writers/rust/patches/) (`cpp`, `go`, `java`, `rust`) it applies the patch, rebuilds the writer, runs it on every dataset in `<repo>/data/<dataset>/` and reverts the patch. The patch is also reverted if a run fails or you press Ctrl+C, and the unpatched writer is rebuilt at the end. All runs go to `writers/low_level_rust_default_configs.db` (or `$SQLITE_DB`). In `dataset_struct_properties` and `file_properties`, the implementation is in `output_file_name`, `<dataset>-<language>.parquet`. Use `LANGUAGES="cpp go"` to run a subset.
+[run_low_level_rust_with_default_configs.sh](scripts/run_low_level_rust_with_default_configs.sh) emulates each implementation's defaults with `low-level-writer`, then measures query times on the files it wrote. It works in three steps:
 
-Query times of the files written by the default writers:
+1. **Ingestion.** For each patch in [writers/rust/patches/](writers/rust/patches/) (`cpp`, `go`, `java`, `rust`), it applies the patch, rebuilds the writer, writes `<dataset>-<language>.parquet` from every dataset in `<repo>/data/<dataset>/`, then reverts the patch. The patch is also reverted if a run fails or you press Ctrl+C, and the unpatched writer is rebuilt at the end.
+2. **Queries.** [run_many_queries.py](runner/run_many_queries.py) generates the range queries for every written file and runs them with DuckDB and DataFusion.
+3. **Cleanup.** It deletes the written files unless `KEEP_OUTPUTS=1` is set.
 
-```bash
-cd runner
-CPP_SAVE_DIR=$SAVE_DIR/cpp_save_data GO_SAVE_DIR=$SAVE_DIR/go_save_data JAVA_SAVE_DIR=$SAVE_DIR/java_save_data \
-    python run_many_queries.py                # results in other_writers.db
-```
+Ingestion and queries go into one database, `writers/low_level_rust_default_configs.db`, or `$SQLITE_DB` if that is set:
+- **Ingestion** goes to `dataset_struct_properties` and `file_properties`, where `output_file_name` names the implementation.
+- **Queries** go to `query` and `query_schedule`, keyed by `<language>_<dataset>`, e.g. `cpp_redd`, and to `query_runs`, keyed by `output_file_name`.
+
+Options:
+- `LANGUAGES="cpp go"` runs a subset of the patches.
+- `PYTHON` selects a Python that has the packages in [requirements.txt](../requirements.txt). The script checks this before it changes anything.
+- If the queries fail, the written files are kept, and `SKIP_INGESTION=1` re-runs only the queries on them.
+- `SKIP_QUERIES=1` only ingests.
+
+All written files stay on disk until the queries are done, so the output directory needs room for every dataset written once per implementation. BLUED alone takes about 86 GB per implementation.
 
 ### Individual and combined parameters
 Example use with REDD dataset:
