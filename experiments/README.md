@@ -64,7 +64,7 @@ CPP_SAVE_DIR=$SAVE_DIR/cpp_save_data GO_SAVE_DIR=$SAVE_DIR/go_save_data JAVA_SAV
 ```
 
 ### Individual and combined parameters
-
+Example use with REDD dataset:
 ```bash
 cd runner
 pip install -r ../../requirements.txt
@@ -83,11 +83,31 @@ With `individual_parameters`, each parameter is varied on its own against a base
 - **Bloom filter, offset index and statistics level.**
 - **Row group sizes:** chosen per dataset.
 
-RLE_DICTIONARY means `dictionary_enabled: true`. Every other encoding is run with dictionary encoding off.
+In `individual_parameters`, RLE_DICTIONARY means `dictionary_enabled: true`, and every other encoding is run with dictionary encoding off.
 
 parquet-rs ignores a disabled offset index while PAGE statistics are on. The "offset index disabled" configuration therefore uses CHUNK statistics.
 
-`combined_parameters` is not implemented yet.
+With `combined_parameters`, the configurations are every combination of the values kept after pruning. The values are the same for all datasets:
+- **Row group sizes:** 102,400, 1,048,576 and 10,240,000 rows.
+- **Data page size:** 1 MiB.
+- **Dictionary page sizes:** 10 KiB and 1 MiB.
+- **Block compressors:** Brotli 1/4/7, LZ4, uncompressed, Zstd 1/4/7/10/13.
+- **Value encodings:** BYTE_STREAM_SPLIT, RLE_DICTIONARY, PLAIN.
+- **Timestamp encodings:** DELTA_BINARY_PACKED, RLE_DICTIONARY, PLAIN.
+- **Statistics:** NONE, CHUNK, PAGE.
+
+The bloom filter and the offset index are not varied and stay at the runner's defaults. So no bloom filter is written, and the offset index is written only with PAGE statistics.
+
+Dictionary encoding applies to all columns at once, so an encoding pair with RLE_DICTIONARY turns it on for both columns. The other column's encoding becomes its fallback, which the writer switches to once the dictionary page is full. Dictionary encoding is combined with DELTA_BINARY_PACKED but not with BYTE_STREAM_SPLIT. The dictionary page size is only varied while dictionary encoding is on.
+
+Pairs that give the same configuration, such as (RLE_DICTIONARY, PLAIN) and (RLE_DICTIONARY, RLE_DICTIONARY), are run once. That leaves 720 configurations per dataset.
+
+On top of these, seven hand-picked configurations are run with Brotli 11 and Zstd 22 each, adding 14 more for a total of 734 per dataset. They are listed in `COMBINED_EXTRA_CONFIGURATIONS` in [generate_configurations.py](runner/generate_configurations.py). Settings they don't list keep the runner's defaults: a row group of 1,048,576 rows, a 1 MiB data page, dictionary off and no statistics.
+
+```bash
+python generate_configurations.py --dataset-name redd --evaluation-type combined_parameters
+python test_parameters_in_isolation.py MANUAL
+```
 
 You can also write `configurations.yaml` by hand from [configurations_example.yaml](runner/configurations_example.yaml). Its `isolated` section is run with `python test_parameters_in_isolation.py ISOLATED`.
 

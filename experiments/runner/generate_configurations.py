@@ -4,7 +4,9 @@ Evaluation types:
 - individual_parameters: every Parquet parameter is varied on its own, all others stay at the BASELINE below.
   The configurations are written as `configurations.manual`, so run them with
   `python test_parameters_in_isolation.py MANUAL`.
-- combined_parameters: the product of the chosen parameter values (not implemented yet).
+- combined_parameters: the product of the parameter values kept after pruning (COMBINED_* below), with the
+  bloom filter and offset index at the runner's defaults, plus the hand-picked COMBINED_EXTRA_CONFIGURATIONS for
+  Brotli 11 and Zstd 22. Also written as `configurations.manual`.
 
 Each configuration lists only the fields that differ from the runner's defaults (ParquetWriterProperties in
 test_parameters_in_isolation.py). The baseline turns on dictionary encoding (RLE_DICTIONARY) and PAGE
@@ -21,6 +23,7 @@ experiments/scripts/run_native_writers.sh and run_low_level_rust_with_default_co
 The written Parquet files go to --path-to-save, by default <repo>/experiments/writers/outputs/save_data/.
 """
 import argparse
+import itertools
 import sys
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -74,6 +77,40 @@ VALUE_ENCODINGS = ['BYTE_STREAM_SPLIT', 'RLE_DICTIONARY', 'PLAIN']
 TIMESTAMP_ENCODINGS = ['DELTA_BINARY_PACKED', 'RLE_DICTIONARY', 'PLAIN']
 STATISTICS_LEVELS = ['PAGE', 'CHUNK', 'NONE']
 
+# combined_parameters: the values kept after pruning (table "Maintained parameters after pruning" in the paper).
+# The same values are used for every dataset. Bloom filter and offset index are not combined and stay at the
+# runner's defaults (no bloom filter; the offset index is only written with PAGE statistics).
+COMBINED_ROW_GROUP_SIZES = [102_400, 1_048_576, 10_240_000]
+COMBINED_DATA_PAGE_SIZES = [1_048_576]
+COMBINED_DICTIONARY_PAGE_SIZES = [10_240, 1_048_576]
+COMBINED_BLOCK_COMPRESSORS = [
+    ('BROTLI', 1), ('BROTLI', 4), ('BROTLI', 7),
+    ('LZ4', 0),
+    ('UNCOMPRESSED', 0),
+    ('ZSTD', 1), ('ZSTD', 4), ('ZSTD', 7), ('ZSTD', 10), ('ZSTD', 13),
+]
+COMBINED_VALUE_ENCODINGS = VALUE_ENCODINGS
+COMBINED_TIMESTAMP_ENCODINGS = TIMESTAMP_ENCODINGS
+COMBINED_STATISTICS_LEVELS = STATISTICS_LEVELS
+
+# combined_parameters: hand-picked configurations added for the highest block compressor levels, which are not part
+# of the product above. Every configuration is run with each of these compressors; fields that are not listed
+# keep the runner's defaults (row group 1,048,576 rows, data page 1 MiB, no dictionary, no statistics).
+COMBINED_EXTRA_COMPRESSORS = [('BROTLI', 11), ('ZSTD', 22)]
+COMBINED_EXTRA_CONFIGURATIONS = [
+    dict(dictionary_enabled=True, dictionary_page_size_limit=10_240),
+    dict(dictionary_enabled=True, dictionary_page_size_limit=10_240, statistics_enabled='PAGE'),
+    dict(dictionary_enabled=True, dictionary_page_size_limit=10_240,
+         timestamp_encoding='DELTA_BINARY_PACKED'),
+    dict(value_encoding='BYTE_STREAM_SPLIT', timestamp_encoding='DELTA_BINARY_PACKED'),
+    dict(timestamp_encoding='DELTA_BINARY_PACKED'),
+    dict(dictionary_enabled=True),
+    dict(value_encoding='BYTE_STREAM_SPLIT', timestamp_encoding='DELTA_BINARY_PACKED', statistics_enabled='PAGE'),
+]
+
+# Fallback encodings that may be combined with dictionary encoding: Delta-Binary-Packed can, Byte-Stream-Split cannot.
+ENCODINGS_INCOMPATIBLE_WITH_DICTIONARY = {'BYTE_STREAM_SPLIT'}
+
 
 def _encoding(base: ParquetWriterProperties, column: str, encoding: str) -> ParquetWriterProperties:
     if encoding == 'RLE_DICTIONARY':
@@ -92,7 +129,7 @@ def individual_parameter_groups(dataset_name: str) -> dict:
     b = BASELINE
     return {
         'block_compressor': [
-            (f'{c}({lvl})' if lvl else c, replace(b, compression=c, compression_level=lvl))
+            (_compressor_label(c, lvl), replace(b, compression=c, compression_level=lvl))
             for c, lvl in BLOCK_COMPRESSORS],
         'data_page_size_limit': [(str(s), replace(b, data_page_size_limit=s)) for s in PAGE_SIZES],
         'dictionary_page_size_limit': [(str(s), replace(b, dictionary_page_size_limit=s)) for s in PAGE_SIZES],
@@ -105,14 +142,74 @@ def individual_parameter_groups(dataset_name: str) -> dict:
     }
 
 
+def _compressor_label(compression: str, level: int) -> str:
+    return f'{compression}({level})' if level else compression
+
+
+def _combined_encodings(base: ParquetWriterProperties, value_encoding: str, timestamp_encoding: str):
+    """Applies a (value, timestamp) encoding pair; None if the pair is not evaluated.
+
+    `dictionary_enabled` switches dictionary encoding on for all columns, and each column's encoding is then the
+    fallback used once its dictionary page is full. A pair with RLE_DICTIONARY therefore turns the dictionary on,
+    and the other column's encoding becomes its fallback (PLAIN for an RLE_DICTIONARY column). Dictionary
+    encoding is combined with DELTA_BINARY_PACKED, but not with BYTE_STREAM_SPLIT.
+    """
+    if 'RLE_DICTIONARY' not in (value_encoding, timestamp_encoding):
+        return replace(base, dictionary_enabled=False, value_encoding=value_encoding,
+                       timestamp_encoding=timestamp_encoding)
+    value_fallback = DEFAULTS.value_encoding if value_encoding == 'RLE_DICTIONARY' else value_encoding
+    timestamp_fallback = DEFAULTS.timestamp_encoding if timestamp_encoding == 'RLE_DICTIONARY' else timestamp_encoding
+    if {value_fallback, timestamp_fallback} & ENCODINGS_INCOMPATIBLE_WITH_DICTIONARY:
+        return None
+    return replace(base, dictionary_enabled=True, value_encoding=value_fallback,
+                   timestamp_encoding=timestamp_fallback)
+
+
+def combined_configurations():
+    """(label, configuration) for every evaluated combination of the COMBINED_* values."""
+    for row_group_size, data_page_size, (compression, level), statistics, value_encoding, timestamp_encoding \
+            in itertools.product(COMBINED_ROW_GROUP_SIZES, COMBINED_DATA_PAGE_SIZES, COMBINED_BLOCK_COMPRESSORS,
+                                 COMBINED_STATISTICS_LEVELS, COMBINED_VALUE_ENCODINGS, COMBINED_TIMESTAMP_ENCODINGS):
+        base = replace(DEFAULTS, max_row_group_size=row_group_size, data_page_size_limit=data_page_size,
+                       compression=compression, compression_level=level, statistics_enabled=statistics)
+        config = _combined_encodings(base, value_encoding, timestamp_encoding)
+        if config is None:
+            continue
+        label = (f'row_group={row_group_size} data_page={data_page_size} '
+                 f'compressor={_compressor_label(compression, level)} statistics={statistics} '
+                 f'value={value_encoding} timestamp={timestamp_encoding}')
+        if config.dictionary_enabled:
+            # The dictionary page size only matters when dictionary encoding is on.
+            for dictionary_page_size in COMBINED_DICTIONARY_PAGE_SIZES:
+                yield (f'{label} dictionary_page={dictionary_page_size}',
+                       replace(config, dictionary_page_size_limit=dictionary_page_size))
+        else:
+            yield label, config
+
+
+def combined_extra_configurations():
+    """(label, configuration) for COMBINED_EXTRA_CONFIGURATIONS with each of COMBINED_EXTRA_COMPRESSORS."""
+    for compression, level in COMBINED_EXTRA_COMPRESSORS:
+        for fields in COMBINED_EXTRA_CONFIGURATIONS:
+            config = replace(DEFAULTS, compression=compression, compression_level=level, **fields)
+            if config.dictionary_enabled and {config.value_encoding, config.timestamp_encoding} \
+                    & ENCODINGS_INCOMPATIBLE_WITH_DICTIONARY:
+                raise ValueError(f'dictionary encoding cannot be combined with {fields}')
+            settings = ' '.join(f'{k}={v}' for k, v in fields.items())
+            yield f'compressor={_compressor_label(compression, level)} {settings}', config
+
+
 def _effective_key(config: ParquetWriterProperties) -> tuple:
     """Configurations that produce the same file compare equal.
 
     parquet-rs writes the offset index anyway when PAGE statistics are on, so the flag is ignored then.
+    The dictionary page size has no effect while dictionary encoding is off.
     """
     d = asdict(config)
     if d['statistics_enabled'] == 'PAGE':
         d['offset_index_disabled'] = None
+    if not d['dictionary_enabled']:
+        d['dictionary_page_size_limit'] = None
     return tuple(sorted((k, str(v)) for k, v in d.items()))
 
 
@@ -131,29 +228,60 @@ def _flow(config: ParquetWriterProperties) -> str:
                           width=10_000).strip()
 
 
-def render_individual_configurations(dataset_name: str) -> tuple[str, int]:
-    lines = ['  manual:']
-    seen = {}
-    count = 0
+class _ManualConfigurations:
+    """Collects the `configurations.manual` entries, writing each distinct configuration once."""
 
-    def emit(group, label, config):
-        nonlocal count
+    def __init__(self, list_duplicates: bool = True):
+        self.lines = ['  manual:']
+        self.seen = {}
+        self.count = 0
+        self.duplicates = 0
+        self.list_duplicates = list_duplicates
+
+    def section(self, title: str):
+        self.lines.append(f'    # ---- {title} ----')
+
+    def emit(self, label: str, config: ParquetWriterProperties):
         key = _effective_key(config)
-        if key in seen:
-            lines.append(f'    # {group}={label}: same configuration as {seen[key]}')
+        if key in self.seen:
+            self.duplicates += 1
+            if self.list_duplicates:
+                self.lines.append(f'    # {label}: same configuration as {self.seen[key]}')
             return
-        seen[key] = f'{group}={label}'
-        lines.append(f'    # {group}={label}')
-        lines.append(f'    - {_flow(config)}')
-        count += 1
+        self.seen[key] = label
+        self.lines.append(f'    # {label}')
+        self.lines.append(f'    - {_flow(config)}')
+        self.count += 1
 
-    lines.append('    # ---- baseline: reference point of every parameter group ----')
-    emit('baseline', 'dictionary+page_statistics', BASELINE)
+    def render(self) -> tuple[str, int, int]:
+        return '\n'.join(self.lines) + '\n', self.count, self.duplicates
+
+
+def render_individual_configurations(dataset_name: str) -> tuple[str, int, int]:
+    manual = _ManualConfigurations()
+    manual.section('baseline: reference point of every parameter group')
+    manual.emit('baseline=dictionary+page_statistics', BASELINE)
     for group, configs in individual_parameter_groups(dataset_name).items():
-        lines.append(f'    # ---- {group} ----')
+        manual.section(group)
         for label, config in configs:
-            emit(group, label, config)
-    return '\n'.join(lines) + '\n', count
+            manual.emit(f'{group}={label}', config)
+    return manual.render()
+
+
+def render_combined_configurations() -> tuple[str, int, int]:
+    # Pairs such as (RLE_DICTIONARY, PLAIN) and (RLE_DICTIONARY, RLE_DICTIONARY) give the same configuration; with
+    # hundreds of them, they are only counted in the header instead of being listed.
+    manual = _ManualConfigurations(list_duplicates=False)
+    current_row_group_size = None
+    for label, config in combined_configurations():
+        if config.max_row_group_size != current_row_group_size:
+            current_row_group_size = config.max_row_group_size
+            manual.section(f'max_row_group_size={current_row_group_size}')
+        manual.emit(label, config)
+    manual.section('hand-picked configurations for BROTLI(11) and ZSTD(22)')
+    for label, config in combined_extra_configurations():
+        manual.emit(label, config)
+    return manual.render()
 
 
 def main():
@@ -168,15 +296,11 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('configurations.yaml'))
     args = parser.parse_args()
 
-    if args.evaluation_type == 'combined_parameters':
-        sys.exit('combined_parameters is not implemented yet')
-
     dataset_dir = DATA_DIR / args.dataset_name
     if not any(dataset_dir.glob('*.parquet')):
         sys.exit(f"No Parquet files found in {dataset_dir}. Download the {args.dataset_name} dataset there first.")
     table_files = str(dataset_dir)
     save_dir = args.path_to_save or str(DEFAULT_SAVE_DIR)
-    Path(save_dir).mkdir(parents=True, exist_ok=True)
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     setup = {
@@ -188,11 +312,15 @@ def main():
         'path_to_metadata_database': args.path_to_metadata_database or f'{args.dataset_name}.db',
         'query_sample_size_per_interval': args.query_sample_size_per_interval,
     }
-    configurations, count = render_individual_configurations(args.dataset_name)
+    if args.evaluation_type == 'individual_parameters':
+        configurations, count, duplicates = render_individual_configurations(args.dataset_name)
+    else:
+        configurations, count, duplicates = render_combined_configurations()
 
     header = (f'# Generated by generate_configurations.py --dataset-name {args.dataset_name} '
               f'--evaluation-type {args.evaluation_type}\n'
-              f'# {count} configurations. Run with: python test_parameters_in_isolation.py MANUAL\n')
+              f'# {count} configurations ({duplicates} combinations that equal one of them are left out). '
+              f'Run with: python test_parameters_in_isolation.py MANUAL\n')
     text = (header + yaml.safe_dump({'experimental_setup': setup}, sort_keys=False)
             + '\nconfigurations:\n' + configurations)
     yaml.safe_load(text)  # fail early if the output is not valid YAML
