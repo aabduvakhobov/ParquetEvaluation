@@ -6,8 +6,9 @@ experimental_setup:
   # Setting `error_bound` to  [0] will do lossless compression 
   # i.e., only rewrite the given parquet using the defined configurations
   error_bound: [0, 0.01, 0.1, 1, 5, 10]
-  path_to_table_files: /data/redd/
-  path_to_save: /data/save_data/
+  # generate_configurations.py fills in <repo>/data/<table_name>/ and <repo>/experiments/writers/outputs/save_data/
+  path_to_table_files: /path/to/ParquetEvaluation/data/redd/
+  path_to_save: /path/to/ParquetEvaluation/experiments/writers/outputs/save_data/
   path_to_metadata_database: /path/to/sqlite_db
   # number of queries that should be created per select `interval`
   # `interval` starts from 1 and increases by order of magnitude until 

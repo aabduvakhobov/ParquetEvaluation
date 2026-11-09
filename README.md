@@ -63,7 +63,7 @@ go version
 java -version && mvn -v
 ```
 
-Once the toolchains are installed, [experiments/writers/run_native_writers.sh](experiments/writers/run_native_writers.sh) builds all four writers. To build them one by one, see [experiments/README.md](experiments/README.md#1-build-the-writers).
+Once the toolchains are installed, [experiments/scripts/run_native_writers.sh](experiments/scripts/run_native_writers.sh) builds all four writers. To build them one by one, see [experiments/README.md](experiments/README.md#1-build-the-writers).
 
 ## Python packages
 Install the packages in [requirements.txt](requirements.txt):
@@ -87,9 +87,21 @@ You can find pre-processed versions of all the datasets from the [Harvard Datave
 
 Citation: `Abduvakhobov, Abduvoris; Jensen, Søren Kejser; Thomsen, Christian; Torben Bach Pedersen, 2026, "Replication Data for: In-depth Evaluation of Parquet for Large Sensor Datasets", https://doi.org/10.7910/DVN/SZAHLT, Harvard Dataverse, V2`
 
+The experiment scripts read each dataset from the `data/` directory at the root of this repository, in a subdirectory named after the dataset in lower case:
+
+```
+data/
+├── blued/        *.parquet
+├── greend/       *.parquet
+├── redd/         *.parquet
+└── neon_wind/    *.parquet
+```
+
+For example, the REDD files go in `data/redd/`. If you keep the datasets elsewhere, a symbolic link works too: `ln -s /path/to/redd data/redd`. The `data/` directory is ignored by git.
+
 
 # Running Experiments
-See [experiments/README.md](experiments/README.md) for building the writers, configuring dataset paths and running:
+See [experiments/README.md](experiments/README.md) for building the writers and running:
 1. the default configurations of the C++, Go, Java and Rust implementations,
 2. each Parquet parameter in isolation,
 3. combinations of parameters.

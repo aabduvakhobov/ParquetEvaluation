@@ -1,12 +1,12 @@
 #!/bin/bash
 # This scripts builds Parquet writer programs in C++, Java, Go and Rust.
 # Then it runs each of them on the dataset files for BLUED, GREEND, REDD and 2D-Wind (aka neon_wind).
-# The script assumes that dataset files are downloaded to the project root's /data repository under each datasets name in lower case
-# So for BLUED, it expects the dataset files to be in `/data/blued/` and so on.
+# The script assumes that dataset files are downloaded to the project root's data/ directory under each dataset's name in lower case.
+# So for BLUED, it expects the dataset files to be in `<repo>/data/blued/`, for REDD in `<repo>/data/redd/` and so on.
 # All these writer programs track file size in bytes and ingestion time in seconds.
 #
-# Usage: ./collect_default_writers_stats.sh [dataset ...]     (default: blued greend redd neon_wind)
-#        e.g. ./collect_default_writers_stats.sh redd
+# Usage: ./run_native_writers.sh [dataset ...]     (default: blued greend redd neon_wind)
+#        e.g. ./run_native_writers.sh redd
 #
 # Every writer records its run (dataset_name, writer, total_write_time, file_size_in_bytes) in the
 # writer_runs table of ONE SQLite database file, which this script passes to all of them.
@@ -22,8 +22,9 @@
 
 set -euo pipefail
 
-WRITERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$WRITERS_DIR/../.." && pwd)"
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
+WRITERS_DIR="$REPO_ROOT/experiments/writers"
 DATA_DIR="$REPO_ROOT/data"
 
 DATASETS="${*:-blued greend redd neon_wind}"

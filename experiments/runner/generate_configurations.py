@@ -14,14 +14,13 @@ duplicates are listed as comments, so no configuration is run twice.
 
 Usage:
     python generate_configurations.py --dataset-name redd --evaluation-type individual_parameters \\
-        [--path-to-table-files /data/redd/] [--path-to-save /data/save_data/] \\
-        [--path-to-metadata-database redd.db] [--output configurations.yaml]
+        [--path-to-save /path/to/save_data/] [--path-to-metadata-database redd.db] [--output configurations.yaml]
 
-Dataset and save paths default to <DATASET>_PATH and SAVE_DIR from the environment or from
-experiments/scripts/paths.env.
+The dataset is read from <repo>/data/<dataset>/ (e.g. <repo>/data/redd/ for redd), like
+experiments/scripts/run_native_writers.sh and run_low_level_rust_with_default_configs.sh.
+The written Parquet files go to --path-to-save, by default <repo>/experiments/writers/outputs/save_data/.
 """
 import argparse
-import os
 import sys
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -32,7 +31,8 @@ from test_parameters_in_isolation import ParquetWriterProperties
 
 RUNNER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = RUNNER_DIR.parent.parent
-PATHS_ENV = REPO_ROOT / 'experiments' / 'scripts' / 'paths.env'
+DATA_DIR = REPO_ROOT / 'data'
+DEFAULT_SAVE_DIR = REPO_ROOT / 'experiments' / 'writers' / 'outputs' / 'save_data'
 DEFAULT_EXECUTABLE = REPO_ROOT / 'experiments' / 'writers' / 'rust' / 'target' / 'release' / 'low-level-writer'
 
 EVALUATION_TYPES = ['individual_parameters', 'combined_parameters']
@@ -156,27 +156,12 @@ def render_individual_configurations(dataset_name: str) -> tuple[str, int]:
     return '\n'.join(lines) + '\n', count
 
 
-def _load_paths_env() -> dict:
-    values = {}
-    if PATHS_ENV.is_file():
-        for line in PATHS_ENV.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                values[key.strip()] = value.strip().strip('"\'')
-    return values
-
-
-def _setting(name: str, paths_env: dict):
-    return os.environ.get(name) or paths_env.get(name)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--dataset-name', required=True, choices=list(ROW_GROUP_SIZES))
     parser.add_argument('--evaluation-type', required=True, choices=EVALUATION_TYPES)
-    parser.add_argument('--path-to-table-files', help='dataset directory or file (default: <DATASET>_PATH)')
-    parser.add_argument('--path-to-save', help='directory for the written Parquet files (default: SAVE_DIR)')
+    parser.add_argument('--path-to-save', help='directory for the written Parquet files '
+                        '(default: <repo>/experiments/writers/outputs/save_data/)')
     parser.add_argument('--path-to-metadata-database', help='SQLite database for the results (default: <dataset>.db)')
     parser.add_argument('--path-to-executable', default=str(DEFAULT_EXECUTABLE))
     parser.add_argument('--query-sample-size-per-interval', type=int, default=100)
@@ -186,13 +171,13 @@ def main():
     if args.evaluation_type == 'combined_parameters':
         sys.exit('combined_parameters is not implemented yet')
 
-    paths_env = _load_paths_env()
-    table_files = args.path_to_table_files or _setting(f'{args.dataset_name.upper()}_PATH', paths_env)
-    save_dir = args.path_to_save or _setting('SAVE_DIR', paths_env)
-    missing = [name for name, value in [('--path-to-table-files', table_files), ('--path-to-save', save_dir)]
-               if not value]
-    if missing:
-        sys.exit(f"Missing {', '.join(missing)}: pass them or set them in {PATHS_ENV} / the environment")
+    dataset_dir = DATA_DIR / args.dataset_name
+    if not any(dataset_dir.glob('*.parquet')):
+        sys.exit(f"No Parquet files found in {dataset_dir}. Download the {args.dataset_name} dataset there first.")
+    table_files = str(dataset_dir)
+    save_dir = args.path_to_save or str(DEFAULT_SAVE_DIR)
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     setup = {
         'path_to_executable': args.path_to_executable,

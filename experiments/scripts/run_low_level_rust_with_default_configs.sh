@@ -8,8 +8,8 @@
 # At the end the unpatched low-level-writer is rebuilt, so target/release/low-level-writer has its own defaults again.
 # The patch is also reverted if the script fails or is interrupted.
 #
-# Like run_native_writers.sh, the script expects the dataset files in the project root's /data directory under each
-# dataset's name in lower case, e.g. BLUED in `/data/blued/`.
+# Like run_native_writers.sh, the script expects the dataset files in the project root's data/ directory under each
+# dataset's name in lower case, e.g. BLUED in `<repo>/data/blued/` and REDD in `<repo>/data/redd/`.
 #
 # Usage: ./run_low_level_rust_with_default_configs.sh [dataset ...]     (default: blued greend redd neon_wind)
 #        e.g. ./run_low_level_rust_with_default_configs.sh redd
@@ -26,8 +26,9 @@
 
 set -euo pipefail
 
-WRITERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$WRITERS_DIR/../.." && pwd)"
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
+WRITERS_DIR="$REPO_ROOT/experiments/writers"
 DATA_DIR="$REPO_ROOT/data"
 RUST_DIR="$WRITERS_DIR/rust"
 LOW_LEVEL_WRITER="$RUST_DIR/target/release/low-level-writer"
