@@ -21,6 +21,7 @@ outputs/
 pareto_results/
 visualization/figures/*
 !visualization/figures/.gitkeep
+visualization/**/*.parquet
 
 # Datasets (see README: download link)
 data/

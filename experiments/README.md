@@ -83,7 +83,7 @@ python test_parameters_in_isolation.py DEFAULT       # low-level Rust writer wit
 
 [generate_configurations.py](runner/generate_configurations.py) writes `configurations.yaml`. The dataset is read from `<repo>/data/<dataset>/`, for example `data/redd/` for `--dataset-name redd`. The written Parquet files go to `--path-to-save`, by default `writers/outputs/save_data/`. The results go to `--path-to-metadata-database`, by default `<repo>/data/output/<dataset>.db`, where [visualization/create_figure_datasets.py](../visualization/create_figure_datasets.py) reads them.
 
-With `individual_parameters`, each parameter is varied on its own against a baseline: the Rust defaults plus dictionary encoding and PAGE statistics. This yields 26 configurations per dataset; a configuration that equals one already listed (such as the baseline) is listed once.
+With `individual_parameters`, each parameter is varied on its own against a baseline: the Rust defaults plus dictionary encoding and PAGE statistics. This yields 27 configurations per dataset; a configuration that equals one already listed (such as the baseline) is listed once.
 - **Block compressors:** GZIP 1/9, Brotli 1/11, Zstd 1/22, Snappy, LZ4, uncompressed.
 - **Data and dictionary page sizes:** 1 KiB to 1 MiB.
 - **Value encodings:** BYTE_STREAM_SPLIT, RLE_DICTIONARY, PLAIN.
@@ -93,7 +93,7 @@ With `individual_parameters`, each parameter is varied on its own against a base
 
 In `individual_parameters`, RLE_DICTIONARY means `dictionary_enabled: true`, and every other encoding is run with dictionary encoding off.
 
-parquet-rs ignores a disabled offset index while PAGE statistics are on. The "offset index disabled" configuration therefore uses CHUNK statistics.
+parquet-rs always writes the offset index while PAGE statistics are on. Both offset index configurations, enabled and disabled, therefore use no statistics.
 
 With `combined_parameters`, the configurations are every combination of the values kept after pruning. The values are the same for all datasets:
 - **Row group sizes:** 102,400, 1,048,576 and 10,240,000 rows.

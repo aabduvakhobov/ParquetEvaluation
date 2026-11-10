@@ -66,13 +66,14 @@ The last three compare the C++, Go, Java and Rust defaults, emulated with the lo
 |---|---|
 | `row_group_sizes_dataset` | `individual_configurations_row_group_sizes.parquet` |
 | `bloom_filter_dataset` | `individual_configurations_bloom_filter.parquet` |
+| `offset_index_dataset` | `individual_configurations_offset_index.parquet` |
 | `data_page_sizes_dataset` | `individual_configurations_page_sizes.parquet` |
 | `dictionary_page_sizes_dataset` | `individual_configurations_dict_page_sizes.parquet` |
 | `encodings_dataset` | `individual_configurations_encodings.parquet` |
 | `block_compressors_dataset` | `individual_configurations_block_compressors.parquet` |
 | `statistics_dataset` | `individual_configurations_metadata_statistics.parquet` |
 
-Each row is one dataset and one value of the evaluated parameter, with three metrics. Each metric is relative to the configuration with the Rust defaults; for the bloom filter, that's the one without a bloom filter.
+Each row is one dataset and one value of the evaluated parameter, with three metrics. Each metric is relative to the configuration with the Rust defaults; for the bloom filter, that's the one without a bloom filter. The offset index is evaluated without statistics, enabled (`True`) relative to disabled (`False`), because parquet-rs always writes the offset index with PAGE statistics.
 - `size_in_MB`: file size.
 - `compression_time_in_secs`: ingestion time.
 - `execution_time_secs`: query time, as the geometric mean over the configuration's query runs.

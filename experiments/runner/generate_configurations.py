@@ -59,9 +59,9 @@ DEFAULTS = ParquetWriterProperties()
 # statistics are enabled.
 BASELINE = replace(DEFAULTS, dictionary_enabled=True, statistics_enabled='PAGE')
 
-# Statistics level used when the offset index is disabled: parquet-rs ignores `offset_index_disabled`
-# while PAGE statistics are on, so page statistics must be turned off for this configuration.
-STATISTICS_WITHOUT_OFFSET_INDEX = 'CHUNK'
+# Statistics level of both offset index configurations: parquet-rs always writes the offset index while PAGE
+# statistics are on, so the offset index is evaluated without statistics, enabled and disabled.
+OFFSET_INDEX_STATISTICS = 'NONE'
 
 # (compression, level); level 0 for compressors without levels.
 BLOCK_COMPRESSORS = [
@@ -122,9 +122,7 @@ def _encoding(base: ParquetWriterProperties, column: str, encoding: str) -> Parq
 
 
 def _offset_index(base: ParquetWriterProperties, enabled: bool) -> ParquetWriterProperties:
-    if enabled:
-        return replace(base, offset_index_disabled=False, statistics_enabled='PAGE')
-    return replace(base, offset_index_disabled=True, statistics_enabled=STATISTICS_WITHOUT_OFFSET_INDEX)
+    return replace(base, offset_index_disabled=not enabled, statistics_enabled=OFFSET_INDEX_STATISTICS)
 
 
 def individual_parameter_groups(dataset_name: str) -> dict:

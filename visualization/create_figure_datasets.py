@@ -36,6 +36,7 @@ Individual configurations (one parameter changed at a time, all others at the Ru
 |----------------------------------|-------------------------------------------------------|
 | row_group_sizes_dataset          | individual_configurations_row_group_sizes.parquet     |
 | bloom_filter_dataset             | individual_configurations_bloom_filter.parquet        |
+| offset_index_dataset             | individual_configurations_offset_index.parquet        |
 | data_page_sizes_dataset          | individual_configurations_page_sizes.parquet          |
 | dictionary_page_sizes_dataset    | individual_configurations_dict_page_sizes.parquet     |
 | encodings_dataset                | individual_configurations_encodings.parquet           |
@@ -517,6 +518,20 @@ def bloom_filter_dataset(databases, system_name='duckdb'):
     return _concat(frames)
 
 
+def offset_index_dataset(databases, system_name='duckdb'):
+    """Offset index enabled ('True') relative to disabled ('False'), both without statistics (statistics_enabled
+    None), since parquet-rs always writes the offset index with PAGE statistics."""
+    frames = []
+    for dataset_name, database_path in databases.items():
+        df = _individual_configurations(load_configurations(str(database_path), system_name),
+                                        {'offset_index_disabled': [0, 1], 'statistics_enabled': ['None']})
+        df['output_file_name'] = df['offset_index_disabled'].map({0: 'True', 1: 'False'})
+        df = _relative_to(df, df['output_file_name'] == 'False', dataset_name)
+        df['dataset_name'] = dataset_label(dataset_name)
+        frames.append(df.sort_values('output_file_name')[['output_file_name'] + METRICS + ['dataset_name']])
+    return _concat(frames)
+
+
 def _page_sizes_dataset(databases, column, system_name):
     frames = []
     for dataset_name, database_path in databases.items():
@@ -747,6 +762,7 @@ COMBINED_CONFIGURATION_DATASETS = {
 INDIVIDUAL_CONFIGURATION_DATASETS = {
     'individual_configurations_row_group_sizes': row_group_sizes_dataset,
     'individual_configurations_bloom_filter': bloom_filter_dataset,
+    'individual_configurations_offset_index': offset_index_dataset,
     'individual_configurations_page_sizes': data_page_sizes_dataset,
     'individual_configurations_dict_page_sizes': dictionary_page_sizes_dataset,
     'individual_configurations_encodings': encodings_dataset,
