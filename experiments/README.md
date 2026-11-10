@@ -51,7 +51,7 @@ Each run appends one row to the `writer_runs` table, which the writer creates if
 | `total_write_time` | Seconds spent reading the input files and writing the Parquet file. |
 | `file_size_in_bytes` | Size of the written Parquet file. |
 
-[run_native_writers.sh](scripts/run_native_writers.sh) first compiles all four writers. It then runs each one on the Parquet files in `<repo>/data/<dataset>/`, and passes all of them the same database file, `writers/default_writers.db`, or `$SQLITE_DB` if set. By default the written Parquet files are deleted once their run is recorded; set `KEEP_OUTPUTS=1` to keep them in `writers/outputs/`. The other options are listed at the top of the script.
+[run_native_writers.sh](scripts/run_native_writers.sh) first compiles all four writers. It then runs each one on the Parquet files in `<repo>/data/<dataset>/`, and passes all of them the same database file, `<repo>/data/output/native_writers.db`, or `$SQLITE_DB` if set. By default the written Parquet files are deleted once their run is recorded; set `KEEP_OUTPUTS=1` to keep them in `writers/outputs/`. The other options are listed at the top of the script.
 
 [run_low_level_rust_with_default_configs.sh](scripts/run_low_level_rust_with_default_configs.sh) emulates each implementation's defaults with `low-level-writer`, then measures query times on the files it wrote. It works in three steps:
 
@@ -59,7 +59,7 @@ Each run appends one row to the `writer_runs` table, which the writer creates if
 2. **Queries.** [run_many_queries.py](runner/run_many_queries.py) generates the range queries for every written file and runs them with DuckDB and DataFusion.
 3. **Cleanup.** It deletes the written files unless `KEEP_OUTPUTS=1` is set.
 
-Ingestion and queries go into one database, `writers/low_level_rust_default_configs.db`, or `$SQLITE_DB` if that is set:
+Ingestion and queries go into one database, `<repo>/data/output/low_level_rust_default_configs.db`, or `$SQLITE_DB` if that is set:
 - **Ingestion** goes to `dataset_struct_properties` and `file_properties`, where `output_file_name` names the implementation.
 - **Queries** go to `query` and `query_schedule`, keyed by `<language>_<dataset>`, e.g. `cpp_redd`, and to `query_runs`, keyed by `output_file_name`.
 
@@ -81,7 +81,7 @@ python test_parameters_in_isolation.py MANUAL        # runs the generated config
 python test_parameters_in_isolation.py DEFAULT       # low-level Rust writer with its default properties
 ```
 
-[generate_configurations.py](runner/generate_configurations.py) writes `configurations.yaml`. The dataset is read from `<repo>/data/<dataset>/`, for example `data/redd/` for `--dataset-name redd`. The written Parquet files go to `--path-to-save`, by default `writers/outputs/save_data/`.
+[generate_configurations.py](runner/generate_configurations.py) writes `configurations.yaml`. The dataset is read from `<repo>/data/<dataset>/`, for example `data/redd/` for `--dataset-name redd`. The written Parquet files go to `--path-to-save`, by default `writers/outputs/save_data/`. The results go to `--path-to-metadata-database`, by default `<repo>/data/output/<dataset>.db`, where [visualization/create_figure_datasets.py](../visualization/create_figure_datasets.py) reads them.
 
 With `individual_parameters`, each parameter is varied on its own against a baseline: the Rust defaults plus dictionary encoding and PAGE statistics. This yields 26 configurations per dataset; a configuration that equals one already listed (such as the baseline) is listed once.
 - **Block compressors:** GZIP 1/9, Brotli 1/11, Zstd 1/22, Snappy, LZ4, uncompressed.
@@ -110,7 +110,7 @@ Dictionary encoding applies to all columns at once, so an encoding pair with RLE
 
 Pairs that give the same configuration, such as (RLE_DICTIONARY, PLAIN) and (RLE_DICTIONARY, RLE_DICTIONARY), are run once. That leaves 720 configurations per dataset.
 
-On top of these, seven hand-picked configurations are run with Brotli 11 and Zstd 22 each, adding 14 more for a total of 734 per dataset. They are listed in `COMBINED_EXTRA_CONFIGURATIONS` in [generate_configurations.py](runner/generate_configurations.py). Settings they don't list keep the runner's defaults: a row group of 1,048,576 rows, a 1 MiB data page, dictionary off and no statistics.
+On top of these, eight hand-picked configurations are run with Brotli 11 and Zstd 22 each, adding 16 more for a total of 736 per dataset. They are listed in `COMBINED_EXTRA_CONFIGURATIONS` in [generate_configurations.py](runner/generate_configurations.py). Settings they don't list keep the runner's defaults: a row group of 1,048,576 rows, a 1 MiB data page, dictionary off and no statistics.
 
 ```bash
 python generate_configurations.py --dataset-name redd --evaluation-type combined_parameters

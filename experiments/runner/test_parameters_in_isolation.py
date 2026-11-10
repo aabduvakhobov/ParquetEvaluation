@@ -379,6 +379,7 @@ def parse_configurations(configuration_file: str, configuration_flag: ConfigFlag
         sys.exit(-1)
 
     metadata_database = os.path.abspath(config['experimental_setup']['path_to_metadata_database'])
+    os.makedirs(os.path.dirname(metadata_database), exist_ok=True)
 
     return UserInput (
         path_to_executable = config['experimental_setup']['path_to_executable'],

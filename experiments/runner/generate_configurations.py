@@ -16,7 +16,7 @@ duplicates are listed as comments, so no configuration is run twice.
 
 Usage:
     python generate_configurations.py --dataset-name redd --evaluation-type individual_parameters \\
-        [--path-to-save /path/to/save_data/] [--path-to-metadata-database redd.db] [--output configurations.yaml]
+        [--path-to-save /path/to/save_data/] [--path-to-metadata-database data/output/redd.db] [--output configurations.yaml]
 
 The dataset is read from <repo>/data/<dataset>/ (e.g. <repo>/data/redd/ for redd), like
 experiments/scripts/run_native_writers.sh and run_low_level_rust_with_default_configs.sh.
@@ -35,6 +35,8 @@ from test_parameters_in_isolation import ParquetWriterProperties
 RUNNER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = RUNNER_DIR.parent.parent
 DATA_DIR = REPO_ROOT / 'data'
+# Result databases go to <repo>/data/output/<dataset>.db, where visualization/create_figure_datasets.py reads them.
+RESULTS_DIR = DATA_DIR / 'output'
 DEFAULT_SAVE_DIR = REPO_ROOT / 'experiments' / 'writers' / 'outputs' / 'save_data'
 DEFAULT_EXECUTABLE = REPO_ROOT / 'experiments' / 'writers' / 'rust' / 'target' / 'release' / 'low-level-writer'
 
@@ -106,6 +108,7 @@ COMBINED_EXTRA_CONFIGURATIONS = [
     dict(timestamp_encoding='DELTA_BINARY_PACKED'),
     dict(dictionary_enabled=True),
     dict(value_encoding='BYTE_STREAM_SPLIT', timestamp_encoding='DELTA_BINARY_PACKED', statistics_enabled='PAGE'),
+    dict(dictionary_enabled=True, timestamp_encoding='DELTA_BINARY_PACKED'),
 ]
 
 # Fallback encodings that may be combined with dictionary encoding: Delta-Binary-Packed can, Byte-Stream-Split cannot.
@@ -290,7 +293,7 @@ def main():
     parser.add_argument('--evaluation-type', required=True, choices=EVALUATION_TYPES)
     parser.add_argument('--path-to-save', help='directory for the written Parquet files '
                         '(default: <repo>/experiments/writers/outputs/save_data/)')
-    parser.add_argument('--path-to-metadata-database', help='SQLite database for the results (default: <dataset>.db)')
+    parser.add_argument('--path-to-metadata-database', help='SQLite database for the results (default: <repo>/data/output/<dataset>.db)')
     parser.add_argument('--path-to-executable', default=str(DEFAULT_EXECUTABLE))
     parser.add_argument('--query-sample-size-per-interval', type=int, default=100)
     parser.add_argument('--output', type=Path, default=Path('configurations.yaml'))
@@ -309,7 +312,7 @@ def main():
         'error_bound': [0],
         'path_to_table_files': table_files,
         'path_to_save': save_dir,
-        'path_to_metadata_database': args.path_to_metadata_database or f'{args.dataset_name}.db',
+        'path_to_metadata_database': str(args.path_to_metadata_database or RESULTS_DIR / f'{args.dataset_name}.db'),
         'query_sample_size_per_interval': args.query_sample_size_per_interval,
     }
     if args.evaluation_type == 'individual_parameters':

@@ -30,7 +30,7 @@
 #     query_runs (keyed by output_file_name).
 #
 # Environment variables (all optional):
-#   SQLITE_DB       database file for all runs                 (default: experiments/writers/low_level_rust_default_configs.db)
+#   SQLITE_DB       database file for all runs                 (default: data/output/low_level_rust_default_configs.db)
 #   OUTPUT_DIR      where the written Parquet files go         (default: experiments/writers/outputs/low_level_rust)
 #   KEEP_OUTPUTS    1 keeps the written Parquet files          (default: 0, they are deleted after the queries have run)
 #   LANGUAGES       implementations to emulate                 (default: "cpp go java rust")
@@ -62,7 +62,7 @@ LOG_DIR="$OUTPUT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
 # Resolve the database to an absolute path once, so every run writes to the same file.
-SQLITE_DB="${SQLITE_DB:-$WRITERS_DIR/low_level_rust_default_configs.db}"
+SQLITE_DB="${SQLITE_DB:-$REPO_ROOT/data/output/low_level_rust_default_configs.db}"
 mkdir -p "$(dirname "$SQLITE_DB")"
 SQLITE_DB="$(cd "$(dirname "$SQLITE_DB")" && pwd)/$(basename "$SQLITE_DB")"
 

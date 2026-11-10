@@ -12,7 +12,7 @@
 # writer_runs table of ONE SQLite database file, which this script passes to all of them.
 #
 # Environment variables (all optional):
-#   SQLITE_DB     database file shared by all writers      (default: experiments/writers/default_writers.db)
+#   SQLITE_DB     database file shared by all writers      (default: data/output/native_writers.db)
 #   OUTPUT_DIR    where the written Parquet files go       (default: experiments/writers/outputs)
 #   KEEP_OUTPUTS  1 keeps the written Parquet files        (default: 0, each file is deleted after its
 #                 run has been recorded, since BLUED alone is ~86 GB per writer)
@@ -41,7 +41,7 @@ mkdir -p "$LOG_DIR"
 
 # One database file for all writers: resolve it to an absolute path once, so every writer
 # (each started from a different working directory) opens the same file.
-SQLITE_DB="${SQLITE_DB:-$WRITERS_DIR/default_writers.db}"
+SQLITE_DB="${SQLITE_DB:-$REPO_ROOT/data/output/native_writers.db}"
 mkdir -p "$(dirname "$SQLITE_DB")"
 SQLITE_DB="$(cd "$(dirname "$SQLITE_DB")" && pwd)/$(basename "$SQLITE_DB")"
 

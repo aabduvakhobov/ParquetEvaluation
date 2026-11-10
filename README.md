@@ -107,4 +107,4 @@ See [experiments/README.md](experiments/README.md) for building the writers and 
 3. combinations of parameters.
 
 # Evaluation in the Paper
-See [visualization/README.md](visualization/README.md). The figures can be regenerated from the aggregated results in `visualization/data/`, or from the raw result databases written by the experiment runner.
+See [visualization/README.md](visualization/README.md). First run the experiments, which write their SQLite databases to `data/output/`. Then create the figure datasets from them with [visualization/create_figure_datasets.py](visualization/create_figure_datasets.py), and draw the figures with the plotting functions in [visualization/paper_figures.ipynb](visualization/paper_figures.ipynb).
