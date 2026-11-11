@@ -1,0 +1,35 @@
+% Requires: booktabs, tabularx, array (all loaded in paper/main.tex). Uses \glss{} dataset names as in evaluation_setup.tex.
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \setlength\tabcolsep{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.6cm} *{4}{>{\raggedright\arraybackslash}X}}
+    \toprule
+    Property & \glss{blued} & \glss{greend} & \glss{neon_wind} & \glss{redd} \\
+    \midrule
+    Distinct values per row group & 1,099 (\texttt{voltage}: $\sim$11,000) & 97 & 1,040 & \textbf{1,015,022} \\
+    Cardinality ratio (distinct / values) & 0.001 & 0.00012 & 0.001 & \textbf{0.97} \\
+    Repeat ratio (value = previous value) & 0.03 & \textbf{0.87} & 0.03 & 0.00 \\
+    Entropy of byte 1: sign + 7 exponent bits (bits) & 2.5 & 0.7 & 1.7 & 3.6 \\
+    Entropy of byte 2: last exponent bit + top 7 mantissa bits (bits) & 7.4 & 0.9 & 7.3 & 7.7 \\
+    Entropy of lowest mantissa byte (bits) & 7.7 & 0.9 & 4.6 & 8.0 \\
+    Entropy of low 2 bytes given high 2 bytes (bits) & 0.3 (\texttt{voltage}: 4.0) & 0.0 & 0.2 & \textbf{9.2} \\
+    Column chunks whose dictionary fits 10\,KiB & \textbf{66\%} & 100\% & 98\% & 0\% \\
+    Column chunks whose dictionary fits 1\,MiB & 100\% & 100\% & 100\% & \textbf{1\%} \\
+    Null ratio (non-empty column chunks) & 0 & \textbf{0.22} & 0 & 0 \\
+    Timestamps on the dominant step & 0.67 & 0.00 & \textbf{1.00} & 0.11 \\
+    Timestamp size, no dictionary $\rightarrow$ 1\,MiB dictionary (MB) & 0.08 $\rightarrow$ 9.3$^{\dagger}$ & 290 $\rightarrow$ 325 & \textbf{1.4 $\rightarrow$ 205} & 44 $\rightarrow$ 73 \\
+    \midrule
+    \textbf{Best value encoding} & \textbf{Dictionary, 1\,MiB} & \textbf{Dictionary, 10\,KiB} ($\approx$ PLAIN with strong compressors) & \textbf{Dictionary, 10\,KiB} & \textbf{BSS} \\
+    Runner-up (size vs.\ best) & PLAIN 1.22$\times$ & PLAIN 1.14$\times$ & PLAIN 1.18$\times$ & PLAIN 1.19$\times$ \\
+    BSS (size vs.\ best) & 1.89$\times$ & 2.25$\times$ & 1.93$\times$ & 1.00$\times$ \\
+    \midrule
+    Why & Few distinct values that change every row: dictionary indices beat LZ. \texttt{voltage} needs more than 10\,KiB of dictionary.
+        & Long runs of a few values: dictionary and LZ both catch them. The dictionary fits in 10\,KiB, so 1\,MiB only adds timestamp overhead.
+        & Same as \glss{blued}, but the dictionary fits in 10\,KiB. The regular timestamps make 1\,MiB's overhead very costly.
+        & Values almost never repeat and the low bytes are noise: the dictionary overflows, and BSS isolates the noise. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Data properties that explain the best value encoding per dataset. Medians over float column chunks of 1,048,576 rows (25\% of \glss{blued}'s row groups, all others in full). Encoding sizes are for the float columns at zstd-13; the best encoding is the same for snappy, LZ4, gzip-9, zstd-13 and brotli-7. Timestamp sizes are from the experiments at ZSTD-13. Bold marks the property that sets a dataset apart. $^{\dagger}$First 20 row groups.}\label{table:dataset_properties}
+\end{table*}
