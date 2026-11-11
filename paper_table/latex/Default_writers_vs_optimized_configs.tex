@@ -1,0 +1,27 @@
+% Please add the following required packages to your document preamble:
+% \usepackage{multirow}
+% \usepackage{graphicx}
+\begin{table}[]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Target} & \textbf{Dataset} & \textbf{\begin{tabular}[c]{@{}c@{}}Encoding\\ timestamp, value\end{tabular}} & \textbf{Block compressor} & \textbf{Statistics} \\ \hline
+\multirow{3}{*}{\begin{tabular}[c]{@{}c@{}}Low Ingestion\\ Time\end{tabular}} & \glss{blued} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Byte-Stream-Split\end{tabular} & LZ4 & None \\ \cline{2-5} 
+ & \glss{greend} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Plain,\end{tabular} & Uncompressed & None \\ \cline{2-5} 
+ & \begin{tabular}[c]{@{}c@{}}\glss{redd}\\ \glss{neon_wind}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Plain,\\ Plain\end{tabular} & Uncompressed & None \\ \hline
+\multirow{4}{*}{\begin{tabular}[c]{@{}c@{}}Low Storage \\ Size\end{tabular}} & \glss{blued} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ \glss{rle-dict}\end{tabular} & Brotli(11) & None \\ \cline{2-5} 
+ & \glss{greend} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Plain\end{tabular} & Brotli(11) & None \\ \cline{2-5} 
+ & \glss{redd} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Byte-Stream-Split\end{tabular} & Brotli(11) & None \\ \cline{2-5} 
+ & \glss{neon_wind} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ \glss{rle-dict}(10240)\end{tabular} & Brotli(11) & None \\ \hline
+\multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}Low Query\\ Time\end{tabular}} & \begin{tabular}[c]{@{}c@{}}\glss{blued} \glss{redd}\\ \glss{neon_wind}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Plain,\\ Plain\end{tabular} & Uncompressed & Page \\ \cline{2-5} 
+ & \glss{greend} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Plain\end{tabular} & Uncompressed & Chunk \\ \hline
+\multirow{4}{*}{Balanced} & \glss{blued} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ \glss{rle-dict}\end{tabular} & LZ4 & Chunk \\ \cline{2-5} 
+ & \glss{greend} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ \glss{rle-dict}(10240)\end{tabular} & Zstd(1) & Page \\ \cline{2-5} 
+ & \glss{redd} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ Byte-Stream-Split\end{tabular} & LZ4 & Page \\ \cline{2-5} 
+ & \glss{neon_wind} & \begin{tabular}[c]{@{}c@{}}Delta-Binary-Packed,\\ \glss{rle-dict}(10240)\end{tabular} & LZ4 & Page \\ \hline
+\end{tabular}%
+}
+\caption{Optimal configurations for each target and dataset. Used in Section IV for RQ1}
+\label{table:target_writer_configurations}
+\end{table}
