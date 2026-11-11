@@ -59,7 +59,7 @@ export PATH=$PATH:/usr/local/go/bin
 source ~/.bashrc
 ```
 
-On Ubuntu 20.04 or 22.04, also install a newer CMake and gcc:
+If you need newer CMake and gcc:
 
 ```bash
 # CMake 3.25 or newer, from PyPI (installs to ~/.local/bin, which must come before /usr/bin in PATH)

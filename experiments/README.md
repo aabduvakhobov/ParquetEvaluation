@@ -72,11 +72,16 @@ Options:
 All written files stay on disk until the queries are done, so the output directory needs room for every dataset written once per implementation. BLUED alone takes about 86 GB per implementation.
 
 ### Individual and combined parameters
-Example use with REDD dataset:
+Example use with REDD dataset assuming you already installed all Python dependencies as described in [Python packages](../README.md#python-packages):
 ```bash
 cd runner
-pip install -r ../../requirements.txt
+
+# activate Python environment
+conda activate parquet-evaluation
+
+# generate configurations for testing Parquet parameters in isolation
 python generate_configurations.py --dataset-name redd --evaluation-type individual_parameters
+# start experiment
 python test_parameters_in_isolation.py MANUAL        # runs the generated configurations.yaml
 python test_parameters_in_isolation.py DEFAULT       # low-level Rust writer with its default properties
 ```
