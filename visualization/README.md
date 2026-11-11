@@ -93,12 +93,10 @@ The combined configurations of `generate_configurations.py --evaluation-type com
 | `combined_ingestion_time_dataset` | `combined_configurations_ingestion_time.parquet` |
 | `combined_query_time_dataset` | `combined_configurations_query_time_duckdb.parquet` and `combined_configurations_query_time_datafusion.parquet` |
 | `combined_balanced_dataset` | `combined_configurations_balanced_duckdb.parquet` and `combined_configurations_balanced_datafusion.parquet` |
-| `combined_best_and_balanced_dataset` | `combined_configurations_best_and_balanced_duckdb.parquet` and `combined_configurations_best_and_balanced_datafusion.parquet` |
 
 Each row is one dataset and configuration. `output_file_name` is the file written with the configuration, and `configuration` is its label in the figure:
 - **Storage size, ingestion time and query time:** `TOP-1` to `TOP-3`, the three best configurations by that metric, ranked by DuckDB or DataFusion query time for the query-time datasets. Ingestion times are stored in whole seconds, so ties are broken with the fractional time.
-- **Balanced:** the two best configurations of each ranking: `best_ingestion` and `second_best_ingestion`, then the same for `storage`, `query_time_datafusion` and `query_time_duckdb`. A configuration that is among the best for several rankings has a row for each.
-- **Best and balanced:** for each target, the best configuration and the balanced one:
+- **Balanced:** for each target, the best configuration and the balanced one:
   - `best_ingestion`, `best_storage`, `best_query_time_datafusion` and `best_query_time_duckdb`: the configuration with the lowest ingestion time, storage size, or DataFusion or DuckDB query time, the same as TOP-1.
   - `balance_ingestion`, `balance_storage`, `balance_query_time_datafusion` and `balance_query_time_duckdb`: the Pareto-optimal configuration chosen by `closest_to_ideal()` in [compute_pareto.py](compute_pareto.py), with weight 0.5 on the target metric and 0.25 on each of the other two.
   - The query metric of `balance_query_time_<engine>` uses that engine's queries. That of `balance_ingestion` and `balance_storage` combines DuckDB and DataFusion, as `compute_pareto.py` does by default.

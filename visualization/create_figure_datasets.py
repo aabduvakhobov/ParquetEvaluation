@@ -64,7 +64,6 @@ and offset index as in the Rust defaults, a 1 MiB data page, a 10 KiB or 1 MiB d
 | combined_ingestion_time_dataset       | combined_configurations_ingestion_time.parquet         |
 | combined_query_time_dataset           | combined_configurations_query_time_{duckdb,datafusion}.parquet |
 | combined_balanced_dataset             | combined_configurations_balanced_{duckdb,datafusion}.parquet   |
-| combined_best_and_balanced_dataset    | combined_configurations_best_and_balanced_{duckdb,datafusion}.parquet |
 
 Each row is one dataset and configuration: output_file_name is the file written with it, configuration its label
 (Default for the Rust defaults, TOP-1, TOP-2, ...) and the three metrics are relative to Default.
@@ -640,21 +639,13 @@ RANKINGS = {
     'query_time': ['execution_time_secs'],
 }
 TOP_CONFIGURATIONS = 3
-# Balanced figure: (label suffix, ranking, query engine of the ranking). The two best configurations of each.
-BALANCED_RANKINGS = [
-    ('ingestion', 'ingestion_time', 'duckdb'),
-    ('storage', 'storage_size', 'duckdb'),
-    ('query_time_datafusion', 'query_time', 'datafusion'),
-    ('query_time_duckdb', 'query_time', 'duckdb'),
-]
-BALANCED_LABELS = ['best', 'second_best']
-# Best and balanced figure, in the figure's order: (label, kind, ranking or Pareto metric, query engine).
-# 'best' is the best configuration by the ranking, as in the TOP-1 of the ranking's figure. 'balance' is the
-# Pareto-optimal configuration closest to the ideal point (compute_pareto.closest_to_ideal) with weight
-# BALANCE_MAIN_WEIGHT on the metric and the rest split equally over the other two. Its query metric uses the queries
-# of the engine; None combines DuckDB and DataFusion, as compute_pareto.py does by default.
+# Balanced figure, in the figure's order: (label, kind, ranking or Pareto metric, query engine). 'best' is the best
+# configuration by the ranking, as in the TOP-1 of the ranking's figure. 'balance' is the Pareto-optimal
+# configuration closest to the ideal point (compute_pareto.closest_to_ideal) with weight BALANCE_MAIN_WEIGHT on the
+# metric and the rest split equally over the other two. Its query metric uses the queries of the engine; None
+# combines DuckDB and DataFusion, as compute_pareto.py does by default.
 BALANCE_MAIN_WEIGHT = 0.5
-BEST_AND_BALANCED_CONFIGURATIONS = [
+BALANCED_CONFIGURATIONS = [
     ('best_ingestion', 'best', 'ingestion_time', 'duckdb'),
     ('balance_ingestion', 'balance', 'ingestion', None),
     ('best_storage', 'best', 'storage_size', 'duckdb'),
@@ -747,20 +738,6 @@ def combined_query_time_dataset(databases, system_name='duckdb'):
     return _top_dataset(databases, 'query_time', system_name)
 
 
-def combined_balanced_dataset(databases, system_name='duckdb'):
-    """The two best combined configurations by ingestion time, storage size, DataFusion query time and DuckDB query
-    time, and Default. They are labelled best_<ranking> and second_best_<ranking>, e.g. best_ingestion and
-    second_best_query_time_duckdb, so a configuration that is among the best for several rankings has a row for
-    each. Ingestion time and storage size are ranked among the configurations with DuckDB query runs;
-    execution_time_secs is the query time on `system_name`.
-    """
-    def select(database_path):
-        return pd.concat([_top_configurations(database_path, ranking, ranking_system,
-                                              [f'{label}_{suffix}' for label in BALANCED_LABELS])
-                          for suffix, ranking, ranking_system in BALANCED_RANKINGS], ignore_index=True)
-    return _labelled_dataset(databases, system_name, select)
-
-
 def balance_weights(main_metric):
     """Pareto weights with BALANCE_MAIN_WEIGHT on `main_metric` ('size', 'ingestion' or 'query') and the rest split
     equally over the other two, e.g. {'size': 0.25, 'ingestion': 0.5, 'query': 0.25} for 'ingestion'."""
@@ -787,7 +764,7 @@ def _balanced_configuration(database_path, main_metric, balanced_system, label):
     return chosen[CONFIGURATION_COLUMNS].assign(configuration=label)
 
 
-def combined_best_and_balanced_dataset(databases, system_name='duckdb'):
+def combined_balanced_dataset(databases, system_name='duckdb'):
     """For each optimization target, the best combined configuration and the balanced one, and Default:
 
     - best_ingestion, best_storage, best_query_time_datafusion and best_query_time_duckdb: the configuration with
@@ -802,7 +779,7 @@ def combined_best_and_balanced_dataset(databases, system_name='duckdb'):
     """
     def select(database_path):
         frames = []
-        for label, kind, target, engine in BEST_AND_BALANCED_CONFIGURATIONS:
+        for label, kind, target, engine in BALANCED_CONFIGURATIONS:
             if kind == 'best':
                 frames.append(_top_configurations(database_path, target, engine, [label]))
             else:
@@ -824,10 +801,6 @@ COMBINED_CONFIGURATION_DATASETS = {
         lambda databases, system_name: combined_balanced_dataset(databases, 'duckdb'),
     'combined_configurations_balanced_datafusion':
         lambda databases, system_name: combined_balanced_dataset(databases, 'datafusion'),
-    'combined_configurations_best_and_balanced_duckdb':
-        lambda databases, system_name: combined_best_and_balanced_dataset(databases, 'duckdb'),
-    'combined_configurations_best_and_balanced_datafusion':
-        lambda databases, system_name: combined_best_and_balanced_dataset(databases, 'datafusion'),
 }
 
 
