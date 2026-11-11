@@ -30,7 +30,7 @@ By default the writer is linked fully statically: Arrow, Parquet, their bundled 
 The fully static build prints a linker warning that `dlopen` needs the shared glibc at runtime. You can ignore it: Arrow only uses `dlopen` for optional plugins such as HDFS, and this writer only reads and writes local files.
 
 ## Dependencies
-- CMake 3.18 or newer, and a C and C++17 compiler. Tested with g++ 13.3 and CMake 3.28.
+- CMake 3.25 or newer, a C compiler and a C++20 compiler (gcc 12 or newer), as required by Arrow C++. Tested with g++ 13.3 and CMake 3.28.
 - Static glibc for the fully static build: `libc6-dev` on Debian/Ubuntu, `glibc-static` on Fedora/RHEL.
 - Internet access on the first configure.
 

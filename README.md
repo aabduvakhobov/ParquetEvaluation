@@ -29,7 +29,7 @@ The experiments were run on Linux (x86-64, Ubuntu 24.04). The writers in Rust, C
 | Writer | Required | Tested with |
 |---|---|---|
 | Rust | Rust 1.85 or newer (edition 2024) with Cargo; a C compiler, because SQLite is compiled into the binary (`rusqlite` with the `bundled` feature) | rustc / cargo 1.96.0 |
-| C++ | CMake 3.18 or newer; a C and C++17 compiler; `make` or Ninja; static glibc (`libc6-dev` / `glibc-static`); internet access on the first build | g++ 13.3.0, CMake 3.28.3, glibc 2.39 |
+| C++ | CMake 3.25 or newer; a C compiler and a C++20 compiler (gcc 12 or newer), both required by Arrow C++; `make` or Ninja; static glibc (`libc6-dev` / `glibc-static`); internet access on the first build | g++ 13.3.0, CMake 3.28.3, glibc 2.39 |
 | Go | Go 1.26.5 or newer (from `go.mod`) | go 1.26.5 |
 | Java | **Java 21** (JDK) and Maven 3.9 or newer | OpenJDK 21.0.12, Maven 3.9.16 |
 | Runner, figures | Python 3.10 or newer, with the packages in [requirements.txt](requirements.txt) | Python 3.12.3 |
@@ -37,6 +37,8 @@ The experiments were run on Linux (x86-64, Ubuntu 24.04). The writers in Rust, C
 You don't need to install Arrow C++ or SQLite. On the first configure, the C++ build downloads Arrow C++ (commit `68c8cec`, `apache-arrow-26.0.0.dev-10`) and the SQLite amalgamation, checks both against SHA-256 hashes, and builds them with their bundled dependencies. This takes a while; on a 16-core machine allow several minutes. The result is a fully static binary; see [experiments/writers/cpp/README.md](experiments/writers/cpp/README.md). The Go and Java dependencies, including SQLite, are downloaded by `go build` and `mvn package`.
 
 ### Installation on Ubuntu/Debian
+
+The commands below are for Ubuntu 24.04. On older releases, the packaged CMake and gcc are too old for Arrow C++: Ubuntu 20.04, for example, has CMake 3.16 and gcc 9, and Ubuntu 22.04 has CMake 3.22 and gcc 11. Install newer versions as shown after the block below.
 
 ```bash
 # C/C++ compiler, make, static glibc, CMake, git
@@ -52,7 +54,29 @@ sudo apt install openjdk-21-jdk maven
 curl -LO https://go.dev/dl/go1.26.5.linux-amd64.tar.gz
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.5.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
+
+# source your PATH for changes to take effect
+source ~/.bashrc
 ```
+
+On Ubuntu 20.04 or 22.04, also install a newer CMake and gcc:
+
+```bash
+# CMake 3.25 or newer, from PyPI (installs to ~/.local/bin, which must come before /usr/bin in PATH)
+python3 -m pip install --user --upgrade cmake
+export PATH=$HOME/.local/bin:$PATH
+
+# gcc/g++ 12 or newer: use your distribution's gcc-12 package if it has one (Ubuntu 22.04),
+# or the ubuntu-toolchain-r/test PPA (Ubuntu 20.04), then point the build at it
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test && sudo apt update
+sudo apt install gcc-13 g++-13
+export CC=gcc-13 CXX=g++-13
+
+# source your PATH for changes to take effect
+source ~/.bashrc
+```
+
+Set `CC` and `CXX` before the first configure of the C++ writer. CMake caches the compiler, so if you configured before, delete `experiments/writers/cpp/build/`.
 
 Check the versions:
 
@@ -66,12 +90,21 @@ java -version && mvn -v
 Once the toolchains are installed, [experiments/scripts/run_native_writers.sh](experiments/scripts/run_native_writers.sh) builds all four writers. To build them one by one, see [experiments/README.md](experiments/README.md#1-build-the-writers).
 
 ## Python packages
-Install the packages in [requirements.txt](requirements.txt):
+Install Miniconda, create a conda environment with Python 3.12 and install the packages in [requirements.txt](requirements.txt) into it. Run the commands from the root of this repository:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash ~/Miniconda3-latest-Linux-x86_64.sh
+
+# Create and activate the environment
+conda create -n parquet-evaluation python=3.12
+conda activate parquet-evaluation
+
+# Install the project dependencies
 pip install -r requirements.txt
 ```
+
+Activate the environment with `conda activate parquet-evaluation` in every new shell before you run the experiment or visualization scripts.
 
 # Datasets
 The following table shows the summary of datasets used in the experiments.
