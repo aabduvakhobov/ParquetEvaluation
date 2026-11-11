@@ -1,8 +1,8 @@
 # Project Overview
-This repository contains implementation of the paper __"In-Depth Evaluation of Parquet for Large Sensor Datasets"__.
+This repository contains the artifacts for reproducing the results in the paper __"In-Depth Evaluation of Parquet for Large Sensor Datasets"__.
 
 ## Motivation
-Apache Parquet (Parquet) is commonly used for storing high-frequency sensor data. Parquet is highly configurable and has many implementations. However, each implementation uses different default configuration and none of these configurations provide the optimal performance for sensor data regarding ingestion time, storage size and query time. Also we show that it is possible to configure Parquet depending on the target workload.
+Apache Parquet (Parquet) is commonly used for storing high-frequency sensor data. Parquet is highly configurable and has many implementations. However, each implementation uses different default configuration and none of these configurations provide the optimal performance for sensor data regarding ingestion time, storage size and query time. Also we show that it is possible to configure Parquet depending on the dataset properties in a way that all the metrics (ingestion time, storage size and query time) are balanced.
 
 ## Overview
 This project performs an in-depth evaluation of Apache Parquet with large real-life sensor datasets. We evaluate the following:
@@ -12,12 +12,12 @@ This project performs an in-depth evaluation of Apache Parquet with large real-l
 4. We identify relevant dataset properties as a way to configure Parquet for the given optimization target.
 
 ## Findings
-We find that currently used default configurations of Parquet implementations do not provide optimal performance on any metric (ingestion time, storage size and query time). We find that with better Parquet tuning, ingestion time, storage size and query time can be decreased by up to 1.25x, 2.5x and 1.14x compared to the used default configurations, respectively. In case of optimizing for each metric individually, ingestion time, storage size and query time can be decreased by up to 2.5x, 3.6x and 1.2x, respectively. We show that it is possible to choose the rigth configuration depending on dataset properties and achieve a balance between all the metrics.
+We find that currently used default configurations of Parquet implementations do not provide optimal performance on any metric (ingestion time, storage size and query time). We find that with better Parquet tuning, ingestion time, storage size and query time can be decreased by up to 1.25x, 3.1x and 1.07x compared to the used default configurations, respectively. In case of optimizing for each metric individually, ingestion time, storage size and query time can be decreased by up to 2.5x, 3.6x and 1.2x, respectively. We show that it is possible to choose the rigth configuration depending on dataset properties and achieve a balance between all the metrics.
 
 # Repository Structure
 | Component | Contents |
 |---|---|
-| [data_preparation/](data_preparation/) | Scripts that turn the raw datasets into the Parquet files used in the experiments. |
+| [data_preparation/](data_preparation/) | Scripts that show how the raw datasets were preprocessed into the Parquet files that are used in the experiments. You are not expected to do that. Go to Datasets section to find the link to download preprocessed datasets. |
 | [experiments/](experiments/) | Parquet writers in Rust, C++, Go and Java, plus the Python experiment runner. |
 | [visualization/](visualization/) | For generating datasets used for figures in the paper. |
 | [dataset_properties/](dataset_properties/) | Analysis of the dataset properties that explain which Parquet value encoding gives the smallest files. |
@@ -159,7 +159,8 @@ See [visualization/README.md](visualization/README.md). First run the experiment
 # Dataset Properties
 [dataset_properties/](dataset_properties/) explains, from properties of the data, why a different Parquet value encoding gives the smallest files for each dataset: BYTE_STREAM_SPLIT for REDD, and Dict-RLE for BLUED, GREEND and 2D-Wind. It also explains which dictionary page limit is effective. [data_properties.py](dataset_properties/data_properties.py) measures properties such as distinct values, repeats and byte entropies per row group. It also rewrites every float column chunk with each value encoding and block compressor to measure the real Parquet sizes.
 
-The script reads the original datasets from `data/<dataset>/` (see [Datasets](#datasets)). Its results are cached as CSV files in the folder, so you only need the datasets to recompute them:
+We already share precomputed dataset properties in the form of CSV files in the [dataset_properties/](dataset_properties/) . If you want to do that again refer to the following.
+The script reads the original datasets from `data/<dataset>/` (see [Datasets](#datasets)). Its results are saved as CSV files in the folder, so you only need the datasets to recompute them:
 
 ```bash
 cd dataset_properties
