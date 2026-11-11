@@ -56,7 +56,7 @@ reference configuration (the Rust defaults, unless noted otherwise):
 Combined configurations (experiments/runner/generate_configurations.py --evaluation-type combined_parameters). The
 configurations are ranked among those with the pruned parameter values only (_combined_candidates()): bloom filter
 and offset index as in the Rust defaults, a 1 MiB data page, a 10 KiB or 1 MiB dictionary page, a row group of
-102,400, 1,048,576 or 10,240,000 rows, Brotli 1/4/7, LZ4, uncompressed or Zstd 1/4/7/10/13, and any statistics level.
+102,400, 1,048,576 or 10,240,000 rows, Brotli 1/4/7/11, LZ4, uncompressed or Zstd 1/4/7/10/13/22, and any statistics level.
 
 | Function                              | Output file                                            |
 |---------------------------------------|--------------------------------------------------------|
@@ -64,6 +64,7 @@ and offset index as in the Rust defaults, a 1 MiB data page, a 10 KiB or 1 MiB d
 | combined_ingestion_time_dataset       | combined_configurations_ingestion_time.parquet         |
 | combined_query_time_dataset           | combined_configurations_query_time_{duckdb,datafusion}.parquet |
 | combined_balanced_dataset             | combined_configurations_balanced_{duckdb,datafusion}.parquet   |
+| combined_best_and_balanced_dataset    | combined_configurations_best_and_balanced_{duckdb,datafusion}.parquet |
 
 Each row is one dataset and configuration: output_file_name is the file written with it, configuration its label
 (Default for the Rust defaults, TOP-1, TOP-2, ...) and the three metrics are relative to Default.
@@ -621,8 +622,10 @@ def statistics_dataset(databases, system_name='duckdb'):
 
 # Pruned parameter values of the combined configurations; only configurations with these values are evaluated.
 COMBINED_COMPRESSORS = [
-    'BROTLI(BrotliLevel(1))', 'BROTLI(BrotliLevel(4))', 'BROTLI(BrotliLevel(7))', 'LZ4_RAW', 'UNCOMPRESSED',
+    'BROTLI(BrotliLevel(1))', 'BROTLI(BrotliLevel(4))', 'BROTLI(BrotliLevel(7))', 'BROTLI(BrotliLevel(11))',
+    'LZ4_RAW', 'UNCOMPRESSED',
     'ZSTD(ZstdLevel(1))', 'ZSTD(ZstdLevel(4))', 'ZSTD(ZstdLevel(7))', 'ZSTD(ZstdLevel(10))', 'ZSTD(ZstdLevel(13))',
+    'ZSTD(ZstdLevel(22))',
 ]
 COMBINED_DATA_PAGE_SIZES = [1_048_576]
 COMBINED_DICTIONARY_PAGE_SIZES = [10_240, 1_048_576]
@@ -645,6 +648,22 @@ BALANCED_RANKINGS = [
     ('query_time_duckdb', 'query_time', 'duckdb'),
 ]
 BALANCED_LABELS = ['best', 'second_best']
+# Best and balanced figure, in the figure's order: (label, kind, ranking or Pareto metric, query engine).
+# 'best' is the best configuration by the ranking, as in the TOP-1 of the ranking's figure. 'balance' is the
+# Pareto-optimal configuration closest to the ideal point (compute_pareto.closest_to_ideal) with weight
+# BALANCE_MAIN_WEIGHT on the metric and the rest split equally over the other two. Its query metric uses the queries
+# of the engine; None combines DuckDB and DataFusion, as compute_pareto.py does by default.
+BALANCE_MAIN_WEIGHT = 0.5
+BEST_AND_BALANCED_CONFIGURATIONS = [
+    ('best_ingestion', 'best', 'ingestion_time', 'duckdb'),
+    ('balance_ingestion', 'balance', 'ingestion', None),
+    ('best_storage', 'best', 'storage_size', 'duckdb'),
+    ('balance_storage', 'balance', 'size', None),
+    ('best_query_time_datafusion', 'best', 'query_time', 'datafusion'),
+    ('balance_query_time_datafusion', 'balance', 'query', 'datafusion'),
+    ('best_query_time_duckdb', 'best', 'query_time', 'duckdb'),
+    ('balance_query_time_duckdb', 'balance', 'query', 'duckdb'),
+]
 COMBINED_COLUMNS = ['output_file_name', 'configuration'] + METRICS + ['dataset_name']
 
 
@@ -742,6 +761,56 @@ def combined_balanced_dataset(databases, system_name='duckdb'):
     return _labelled_dataset(databases, system_name, select)
 
 
+def balance_weights(main_metric):
+    """Pareto weights with BALANCE_MAIN_WEIGHT on `main_metric` ('size', 'ingestion' or 'query') and the rest split
+    equally over the other two, e.g. {'size': 0.25, 'ingestion': 0.5, 'query': 0.25} for 'ingestion'."""
+    other_weight = (1 - BALANCE_MAIN_WEIGHT) / (len(PARETO_METRICS) - 1)
+    return {metric: BALANCE_MAIN_WEIGHT if metric == main_metric else other_weight for metric in PARETO_METRICS}
+
+
+@lru_cache(maxsize=None)
+def _combined_pareto_front(database_path, balanced_system):
+    """The Pareto front (compute_pareto.py) of the combined candidates, with the query metric of
+    `balanced_system`. The metrics are normalized again by the best candidate, so the excluded configurations do
+    not move the ideal point."""
+    metrics, _, _ = compute_metrics(database_path, system=balanced_system)
+    metrics = _combined_candidates(metrics).copy()
+    for metric in PARETO_METRICS:
+        metrics[f'{metric}_norm'] = metrics[metric] / metrics[metric].min()
+    return pareto_points(metrics)
+
+
+def _balanced_configuration(database_path, main_metric, balanced_system, label):
+    """The Pareto-optimal combined candidate closest to the ideal point with balance_weights(main_metric)."""
+    front = _combined_pareto_front(database_path, balanced_system)
+    chosen = closest_to_ideal(front, 1, balance_weights(main_metric))
+    return chosen[CONFIGURATION_COLUMNS].assign(configuration=label)
+
+
+def combined_best_and_balanced_dataset(databases, system_name='duckdb'):
+    """For each optimization target, the best combined configuration and the balanced one, and Default:
+
+    - best_ingestion, best_storage, best_query_time_datafusion and best_query_time_duckdb: the configuration with
+      the lowest ingestion time, storage size, or DataFusion or DuckDB query time (TOP-1 of the ranking);
+    - balance_ingestion, balance_storage, balance_query_time_datafusion and balance_query_time_duckdb: the
+      Pareto-optimal configuration closest to the ideal point (compute_pareto.closest_to_ideal) with weight 0.5 on
+      the target metric and 0.25 on each of the other two. The query metric of balance_query_time_<engine> uses
+      that engine's queries; that of balance_ingestion and balance_storage combines DuckDB and DataFusion.
+
+    Only the combined candidates take part. execution_time_secs is the query time on `system_name`, and all three
+    metrics are relative to Default.
+    """
+    def select(database_path):
+        frames = []
+        for label, kind, target, engine in BEST_AND_BALANCED_CONFIGURATIONS:
+            if kind == 'best':
+                frames.append(_top_configurations(database_path, target, engine, [label]))
+            else:
+                frames.append(_balanced_configuration(database_path, target, engine, label))
+        return pd.concat(frames, ignore_index=True)
+    return _labelled_dataset(databases, system_name, select)
+
+
 # 3. Combined configurations. Output file name -> function creating the dataset; the query engine of the query
 # time datasets is fixed.
 COMBINED_CONFIGURATION_DATASETS = {
@@ -755,6 +824,10 @@ COMBINED_CONFIGURATION_DATASETS = {
         lambda databases, system_name: combined_balanced_dataset(databases, 'duckdb'),
     'combined_configurations_balanced_datafusion':
         lambda databases, system_name: combined_balanced_dataset(databases, 'datafusion'),
+    'combined_configurations_best_and_balanced_duckdb':
+        lambda databases, system_name: combined_best_and_balanced_dataset(databases, 'duckdb'),
+    'combined_configurations_best_and_balanced_datafusion':
+        lambda databases, system_name: combined_best_and_balanced_dataset(databases, 'datafusion'),
 }
 
 

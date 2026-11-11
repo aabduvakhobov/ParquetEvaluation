@@ -19,8 +19,9 @@ We find that currently used default configurations of Parquet implementations do
 |---|---|
 | [data_preparation/](data_preparation/) | Scripts that turn the raw datasets into the Parquet files used in the experiments. |
 | [experiments/](experiments/) | Parquet writers in Rust, C++, Go and Java, plus the Python experiment runner. |
-| [visualization/](visualization/) | Figure generation for the paper. |
+| [visualization/](visualization/) | For generating datasets used for figures in the paper. |
 | [dataset_properties/](dataset_properties/) | Analysis of the dataset properties that explain which Parquet value encoding gives the smallest files. |
+| [paper_table/](paper_table/) | Additional tables referred to in the paper, in Markdown ([markdown/](paper_table/markdown/)) and LaTeX ([latex/](paper_table/latex/)). |
 
 # Environment Setup
 The experiments were run on Linux (x86-64, Ubuntu 24.04). The writers in Rust, C++, Go and Java are built from source, so you need a toolchain for each of them. The scripts also need `git`, which applies the patches in `experiments/writers/rust/patches/`, and `python3`.
@@ -97,6 +98,9 @@ Install Miniconda, create a conda environment with Python 3.12 and install the p
 curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash ~/Miniconda3-latest-Linux-x86_64.sh
 
+# Load conda into the current shell (the installer adds it to ~/.bashrc)
+source ~/.bashrc
+
 # Create and activate the environment
 conda create -n parquet-evaluation python=3.12
 conda activate parquet-evaluation
@@ -130,7 +134,7 @@ data/
 ├── redd/         *.parquet
 └── neon_wind/    *.parquet
 ```
-
+Please note that we neon_wind for 2D-Wind dataset to ensure consistency and avoid errors across all implementations.
 For example, the REDD files go in `data/redd/`. If you keep the datasets elsewhere, a symbolic link works too: `ln -s /path/to/redd data/redd`. The `data/` directory is ignored by git.
 
 The downloaded BLUED and 2D-Wind (NEON Wind) datasets consist of many Parquet files. After downloading them, merge each into a single Parquet file with [data_preparation/common/merge_parquet_files.py](data_preparation/common/merge_parquet_files.py), and write the merged file to the dataset's directory under `data/`. Download them to a directory outside `data/`, so that only the merged file ends up in `data/<dataset>/`:
