@@ -1,11 +1,10 @@
 # Visualization
 
-Generates the figures in the paper from the results of the experiments.
+Generates the dataset that used for figures in the paper from the results of the experiments.
 
 | File | Purpose |
 |---|---|
-| [create_figure_datasets.py](create_figure_datasets.py) | Builds the dataset behind each figure from the result databases, so you can draw the figures yourself. |
-| [paper_figures.ipynb](paper_figures.ipynb) | The plotting functions of the figures. Output goes to `figures/`. |
+| [create_figure_datasets.py](create_figure_datasets.py) | Builds the dataset behind each figure from the result databases, so you can draw the figures yourself.
 | [compute_pareto.py](compute_pareto.py) | Pareto-optimal configurations for storage size, ingestion time and query time. Also picks the *balanced* configuration. |
 
 ## Workflow
@@ -19,10 +18,12 @@ Generates the figures in the paper from the results of the experiments.
 
 ```bash
 pip install -r ../requirements.txt
+# For Figure datasets in Section IV
 python create_figure_datasets.py --evaluation-type default_writers
+# For Figure datasets in Section V
 python create_figure_datasets.py --evaluation-type individual_configurations
+# For Figure datasets in Section VI
 python create_figure_datasets.py --evaluation-type combined_configurations
-jupyter notebook paper_figures.ipynb
 ```
 
 [compute_pareto.py](compute_pareto.py) reads the same `<repo>/data/output/<dataset>.db` databases, or those in `--results-dir`:
@@ -39,9 +40,9 @@ python compute_pareto.py --datasets blued redd [--results-dir path/to/dir] [--sy
 
 The default writers are compared with five configurations of the low-level Rust writer per dataset, chosen by `optimized_configurations`:
 - **RustLL:** the Rust defaults.
-- **Compression:** the lowest storage size.
-- **Ingestion time:** the lowest ingestion time. Ingestion times are stored in whole seconds, so ties are broken with the fractional time in `file_properties`.
-- **Query time:** the lowest DuckDB query time, as the geometric mean over its query runs.
+- **Low Storage Size:** the lowest storage size.
+- **Low Ingestion time:** the lowest ingestion time. Ingestion times are stored in whole seconds, so ties are broken with the fractional time in `file_properties`.
+- **Low Query time:** the lowest DuckDB query time, as the geometric mean over its query runs.
 - **Balanced:** the configuration chosen by `closest_to_ideal()` in [compute_pareto.py](compute_pareto.py), with its default settings.
 
 All but RustLL are chosen only from configurations without Snappy, GZIP or a bloom filter, with a 1 MiB data page, a 10 KiB or 1 MiB dictionary page and a row group of 102,400, 1,048,576 or 10,240,000 rows.
@@ -56,7 +57,7 @@ All but RustLL are chosen only from configurations without Snappy, GZIP or a blo
 
 `native_writer_ingestion_times_dataset` also reads the database of [run_native_writers.sh](../experiments/scripts/run_native_writers.sh), `data/output/native_writers.db` by default or `--native-writers-database`. It has one row per dataset and one column per bar, relative to RustLL and rounded to one decimal. A writer without a run on a dataset is 0, which the figure shows as "Did not compress".
 
-The last three compare the C++, Go, Java and Rust defaults, emulated with the low-level Rust writer, with Compression, Ingestion time, Query time and Balanced. The emulated defaults come from the database of [run_low_level_rust_with_default_configs.sh](../experiments/scripts/run_low_level_rust_with_default_configs.sh), `data/output/low_level_rust_default_configs.db` by default or `--low-level-defaults-database`.
+The last three compare the C++, Go, Java and Rust defaults, emulated with the low-level Rust writer, with Low Ingestion Time, Low Storage Size and Low Query time and Balanced. The emulated defaults come from the database of [run_low_level_rust_with_default_configs.sh](../experiments/scripts/run_low_level_rust_with_default_configs.sh), `data/output/low_level_rust_default_configs.db` by default or `--low-level-defaults-database`.
 - **Ingestion times and storage sizes:** one row per dataset and one column per bar, relative to the emulated Rust defaults. Ingestion times are rounded to one decimal and sizes to two, as in the figures.
 - **Query times:** one row per DuckDB query run, in seconds, with the bar in `output_file_name`.
 
@@ -112,7 +113,7 @@ python create_figure_datasets.py --evaluation-type default_writers --native-writ
     --low-level-defaults-database ../data/output/low_level_rust_default_configs.db
 ```
 
-`--evaluation-type` is required and selects which figures' datasets are written: `default_writers`, `individual_configurations` or `combined_configurations`. The files are written to `figure_datasets/`, or to `--output-dir`. Query times come from DuckDB unless you pass `--system datafusion`. Each function also works on its own:
+`--evaluation-type` is required and selects which figures' datasets are written: `default_writers`, `individual_configurations` or `combined_configurations`. The files are written to `figure_datasets/`, or to `--output-dir`. Query times come from DuckDB unless you use `--system datafusion`. Each function also works on its own:
 
 ```python
 from create_figure_datasets import encodings_dataset
