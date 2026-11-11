@@ -4,7 +4,7 @@ use std::fs::File;
 use std::num::ParseIntError;
 use std::sync::Arc;
 use std::time::Duration;
-use std::{io, usize};
+use std::io;
 
 use std::path::Path;
 use std::path::PathBuf;
