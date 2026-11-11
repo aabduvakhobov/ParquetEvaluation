@@ -20,6 +20,7 @@ We find that currently used default configurations of Parquet implementations do
 | [data_preparation/](data_preparation/) | Scripts that turn the raw datasets into the Parquet files used in the experiments. |
 | [experiments/](experiments/) | Parquet writers in Rust, C++, Go and Java, plus the Python experiment runner. |
 | [visualization/](visualization/) | Figure generation for the paper. |
+| [dataset_properties/](dataset_properties/) | Analysis of the dataset properties that explain which Parquet value encoding gives the smallest files. |
 
 # Environment Setup
 The experiments were run on Linux (x86-64, Ubuntu 24.04). The writers in Rust, C++, Go and Java are built from source, so you need a toolchain for each of them. The scripts also need `git`, which applies the patches in `experiments/writers/rust/patches/`, and `python3`.
@@ -53,7 +54,7 @@ sudo apt install openjdk-21-jdk maven
 # Go: the distribution package is usually older than 1.26.5, so install it from https://go.dev/dl/
 curl -LO https://go.dev/dl/go1.26.5.linux-amd64.tar.gz
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.5.linux-amd64.tar.gz
-export PATH=$PATH:/usr/local/go/bin
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
 
 # source your PATH for changes to take effect
 source ~/.bashrc
@@ -64,13 +65,13 @@ If you need newer CMake and gcc:
 ```bash
 # CMake 3.25 or newer, from PyPI (installs to ~/.local/bin, which must come before /usr/bin in PATH)
 python3 -m pip install --user --upgrade cmake
-export PATH=$HOME/.local/bin:$PATH
+echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc
 
 # gcc/g++ 12 or newer: use your distribution's gcc-12 package if it has one (Ubuntu 22.04),
 # or the ubuntu-toolchain-r/test PPA (Ubuntu 20.04), then point the build at it
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test && sudo apt update
 sudo apt install gcc-13 g++-13
-export CC=gcc-13 CXX=g++-13
+echo 'export CC=gcc-13 CXX=g++-13' >> ~/.bashrc
 
 # source your PATH for changes to take effect
 source ~/.bashrc
@@ -132,6 +133,15 @@ data/
 
 For example, the REDD files go in `data/redd/`. If you keep the datasets elsewhere, a symbolic link works too: `ln -s /path/to/redd data/redd`. The `data/` directory is ignored by git.
 
+The downloaded BLUED and 2D-Wind (NEON Wind) datasets consist of many Parquet files. After downloading them, merge each into a single Parquet file with [data_preparation/common/merge_parquet_files.py](data_preparation/common/merge_parquet_files.py), and write the merged file to the dataset's directory under `data/`. Download them to a directory outside `data/`, so that only the merged file ends up in `data/<dataset>/`:
+
+```bash
+python data_preparation/common/merge_parquet_files.py /path/to/downloaded/blued blued data/blued
+python data_preparation/common/merge_parquet_files.py /path/to/downloaded/neon_wind neon_wind data/neon_wind
+```
+
+The script writes `data/<dataset>/<dataset>.parquet` with pyarrow's default configuration. It streams the files one row group at a time, so it does not run out of memory on BLUED (62 GB).
+
 
 # Running Experiments
 See [experiments/README.md](experiments/README.md) for building the writers and running:
@@ -141,3 +151,18 @@ See [experiments/README.md](experiments/README.md) for building the writers and 
 
 # Evaluation in the Paper
 See [visualization/README.md](visualization/README.md). First run the experiments, which write their SQLite databases to `data/output/`. Then create the figure datasets from them with [visualization/create_figure_datasets.py](visualization/create_figure_datasets.py), and draw the figures with the plotting functions in [visualization/paper_figures.ipynb](visualization/paper_figures.ipynb).
+
+# Dataset Properties
+[dataset_properties/](dataset_properties/) explains, from properties of the data, why a different Parquet value encoding gives the smallest files for each dataset: BYTE_STREAM_SPLIT for REDD, and Dict-RLE for BLUED, GREEND and 2D-Wind. It also explains which dictionary page limit is effective. [data_properties.py](dataset_properties/data_properties.py) measures properties such as distinct values, repeats and byte entropies per row group. It also rewrites every float column chunk with each value encoding and block compressor to measure the real Parquet sizes.
+
+The script reads the original datasets from `data/<dataset>/` (see [Datasets](#datasets)). Its results are cached as CSV files in the folder, so you only need the datasets to recompute them:
+
+```bash
+cd dataset_properties
+python -I data_properties.py
+```
+
+See [dataset_properties/README.md](dataset_properties/README.md) for the method, the measured properties and the findings, and [dataset_properties/dataset_property_table.md](dataset_properties/dataset_property_table.md) for the summary table.
+
+# Our Setup
+We run all experiments on a server with an AMD EPYC 7302P 16 Cores and 32 Threads, 256 GiB DDR4 3200 MHz RAM, 8 SATA SSDs, Ubuntu 20.04.6 LTS, and the Rust crate parquet v58.0.0. To analyze query time in detail, we use both DuckDB v1.2.1 and DataFusion v53.0.0 .

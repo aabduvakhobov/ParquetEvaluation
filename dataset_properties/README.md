@@ -11,7 +11,6 @@ It also explains why the 10 KiB dictionary page limit beats 1 MiB for GREEND and
 
 | File | What it is |
 |---|---|
-| [data_property_analysis.ipynb](data_property_analysis.ipynb) | The analysis: sizes per column from the experiment databases, the property summary, the encoding × compressor table, figures and findings. |
 | [data_properties.py](data_properties.py) | Computes the properties of every row group and the real Parquet size of each column chunk per encoding and compressor. `load()` reads the cached CSV files, and `load(recompute=True)` or `python -I data_properties.py` computes them again. |
 | [data_properties.csv](data_properties.csv) | Granularity: one row per column chunk (float and timestamp columns). |
 | [data_properties_columns.csv](data_properties_columns.csv) | Granularity: the properties aggregated per column. |
@@ -21,11 +20,11 @@ It also explains why the 10 KiB dictionary page limit beats 1 MiB for GREEND and
 ## Inputs
 
 - **Original datasets:** read from `<repo>/data/<dataset>/*.parquet`, with `<dataset>` one of `blued`, `greend`, `redd` and `neon_wind`. See [Datasets](../README.md#datasets) in the top-level README for where to get them. They are opened read-only.
-- **Experiment results:** the notebook reads the SQLite databases that [test_parameters_in_isolation.py](../experiments/runner/test_parameters_in_isolation.py) writes to `<repo>/data/output/<dataset>.db`. It opens them read-only and uses only the rows with `error_bound = '0'`. Two tables are used:
+- **Experiment results:** the sizes from the experiments (step 1 of the method) come from the SQLite databases that [test_parameters_in_isolation.py](../experiments/runner/test_parameters_in_isolation.py) writes to `<repo>/data/output/<dataset>.db`, using only the rows with `error_bound = '0'`. Two tables are used:
   - `dataset_struct_properties`: one row per file, which is one configuration;
   - `file_properties`: one row per column chunk.
 
-The cached CSV files are included, so the notebook runs without the original datasets. Only recomputing the properties needs them.
+The cached CSV files are included, so you can use the properties without the original datasets. Only recomputing them needs the datasets.
 
 ## Running
 
@@ -33,7 +32,6 @@ From this folder, with the Python environment from [Python packages](../README.m
 
 ```bash
 python -I data_properties.py          # recompute the cached CSV files (multiprocessing, about 10 minutes with 24 processes)
-jupyter notebook data_property_analysis.ipynb
 ```
 
 `WORKERS` in [data_properties.py](data_properties.py) sets the number of processes. `SAMPLE_EVERY` sets which row groups of each dataset are measured: 1 means every row group, and 4 means every 4th.
@@ -116,5 +114,5 @@ Parquet stores nulls as definition levels: 1 bit per row, RLE or bit-packed. Wit
 ## Caveats
 
 - **Data pages:** Parquet writers (arrow-cpp and parquet-rs) cap data pages at 20,000 rows by default, so the experiment files have 52 pages per 1,048,576-row column chunk. Benchmarks with raw zstd on 1 MiB pages make PLAIN look too good, for example on BLUED `voltage`. Real Parquet writes show BSS ≈ PLAIN there.
-- **2D-Wind database:** `file_properties` stores every column chunk twice, so the notebook de-duplicates it with `select distinct`.
+- **2D-Wind database:** `file_properties` stores every column chunk twice, so de-duplicate it with `select distinct` before summing sizes.
 - **Timestamp encoding:** `timestamp_encoding` varies in the databases (PLAIN or DELTA_BINARY_PACKED) and must be held fixed when comparing value encodings. For example, GREEND DICT1M at zstd-13 is 476.5 MB with PLAIN timestamps and 423.5 MB with DELTA_BINARY_PACKED.

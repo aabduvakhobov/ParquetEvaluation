@@ -1,6 +1,6 @@
 # Data properties that explain the best Parquet value encoding per dataset
 
-Source: [data_property_analysis.ipynb](data_property_analysis.ipynb) and [data_properties.py](data_properties.py).
+Source: [data_properties.py](data_properties.py) and the experiment result databases.
 
 - Values are medians over float value column chunks, with row groups are cut at 1,048,576 rows as in the experiments: all row groups of greend, redd and 2d_wind, and every 4th row group of blued (25 %, 1,647 row groups).
 - Encoding sizes come from writing each column chunk as a real Parquet column chunk (pyarrow, nulls included, 1 MiB data pages capped at 20,000 rows) for PLAIN, BYTE_STREAM_SPLIT (BSS) and dictionary with a 10 KiB or 1 MiB dictionary page limit, × LZ4, zstd-13 and brotli-7.

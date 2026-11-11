@@ -25,7 +25,7 @@ By default the writer is linked fully statically: Arrow, Parquet, their bundled 
 | CMake option | Default | Effect |
 |---|---|---|
 | `PARQUET_WRITER_STATIC` | `ON` | Links Arrow, Parquet and the C++ runtime statically. `OFF` uses shared libraries, which requires an installed Arrow with shared libraries (`PARQUET_WRITER_BUILD_ARROW=OFF`). |
-| `PARQUET_WRITER_FULLY_STATIC` | `ON` | Also links glibc statically. With `OFF`, the target machine needs glibc at least as new as the build machine's. |
+| `PARQUET_WRITER_FULLY_STATIC` | `ON` | Also links glibc statically. With `OFF`, the target machine needs glibc at least as new as the build machine's. With glibc older than 2.34 (for example Ubuntu 20.04), it is turned `OFF` automatically: there, a statically linked glibc doesn't handle threads correctly and the writer crashes with a segmentation fault. |
 
 The fully static build prints a linker warning that `dlopen` needs the shared glibc at runtime. You can ignore it: Arrow only uses `dlopen` for optional plugins such as HDFS, and this writer only reads and writes local files.
 
