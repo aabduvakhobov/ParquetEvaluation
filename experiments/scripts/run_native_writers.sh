@@ -5,8 +5,11 @@
 # So for BLUED, it expects the dataset files to be in `<repo>/data/blued/`, for REDD in `<repo>/data/redd/` and so on.
 # All these writer programs track file size in bytes and ingestion time in seconds.
 #
-# Usage: ./run_native_writers.sh [dataset ...]     (default: blued greend redd neon_wind)
-#        e.g. ./run_native_writers.sh redd
+# Usage: ./run_native_writers.sh [dataset ...]
+#   dataset: one or more of blued, greend, redd and neon_wind. Pass only the datasets you have in
+#   <repo>/data/; without arguments, all four are expected there.
+#   e.g. ./run_native_writers.sh redd
+#        ./run_native_writers.sh redd greend
 #
 # Every writer records its run (dataset_name, writer, total_write_time, file_size_in_bytes) in the
 # writer_runs table of ONE SQLite database file, which this script passes to all of them.
@@ -27,7 +30,14 @@ REPO_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
 WRITERS_DIR="$REPO_ROOT/experiments/writers"
 DATA_DIR="$REPO_ROOT/data"
 
-DATASETS="${*:-blued greend redd neon_wind}"
+ALL_DATASETS="blued greend redd neon_wind"
+DATASETS="${*:-$ALL_DATASETS}"
+for dataset_name in $DATASETS; do
+	case " $ALL_DATASETS " in
+		*" $dataset_name "*) ;;
+		*) echo "Unknown dataset: $dataset_name (expected one or more of: $ALL_DATASETS)" >&2; exit 1 ;;
+	esac
+done
 WRITERS="${WRITERS:-cpp go java rust}"
 OUTPUT_DIR="${OUTPUT_DIR:-$WRITERS_DIR/outputs}"
 KEEP_OUTPUTS="${KEEP_OUTPUTS:-0}"
@@ -92,7 +102,7 @@ run_writer() {
 for dataset_name in $DATASETS; do
 	dataset_dir="$DATA_DIR/$dataset_name"
 	if ! compgen -G "$dataset_dir/*.parquet" > /dev/null; then
-		echo "No Parquet files found in $dataset_dir. Download the $dataset_name dataset there first." >&2
+		echo "No Parquet files found in $dataset_dir. Download the $dataset_name dataset there first, or pass only the datasets you have, e.g. $0 redd." >&2
 		exit 1
 	fi
 	for writer in $WRITERS; do

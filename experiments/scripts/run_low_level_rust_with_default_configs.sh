@@ -20,8 +20,11 @@
 # Like run_native_writers.sh, the script expects the dataset files in the project root's data/ directory under each
 # dataset's name in lower case, e.g. BLUED in `<repo>/data/blued/` and REDD in `<repo>/data/redd/`.
 #
-# Usage: ./run_low_level_rust_with_default_configs.sh [dataset ...]     (default: blued greend redd neon_wind)
-#        e.g. ./run_low_level_rust_with_default_configs.sh redd
+# Usage: ./run_low_level_rust_with_default_configs.sh [dataset ...]
+#   dataset: one or more of blued, greend, redd and neon_wind. Pass only the datasets you have in
+#   <repo>/data/; without arguments, all four are expected there.
+#   e.g. ./run_low_level_rust_with_default_configs.sh redd
+#        ./run_low_level_rust_with_default_configs.sh redd greend
 #
 # Ingestion and queries are recorded in ONE SQLite database file:
 #   - ingestion: tables dataset_struct_properties, file_properties and writer_properties of low-level-writer,
@@ -48,7 +51,14 @@ RUST_DIR="$WRITERS_DIR/rust"
 LOW_LEVEL_WRITER="$RUST_DIR/target/release/low-level-writer"
 RUN_MANY_QUERIES="$REPO_ROOT/experiments/runner/run_many_queries.py"
 
-DATASETS="${*:-blued greend redd neon_wind}"
+ALL_DATASETS="blued greend redd neon_wind"
+DATASETS="${*:-$ALL_DATASETS}"
+for dataset_name in $DATASETS; do
+	case " $ALL_DATASETS " in
+		*" $dataset_name "*) ;;
+		*) echo "Unknown dataset: $dataset_name (expected one or more of: $ALL_DATASETS)" >&2; exit 1 ;;
+	esac
+done
 LANGUAGES="${LANGUAGES:-cpp go java rust}"
 OUTPUT_DIR="${OUTPUT_DIR:-$WRITERS_DIR/outputs/low_level_rust}"
 KEEP_OUTPUTS="${KEEP_OUTPUTS:-0}"
@@ -116,7 +126,7 @@ if [ "$SKIP_INGESTION" != "1" ]; then
 	done
 	for dataset_name in $DATASETS; do
 		if ! compgen -G "$DATA_DIR/$dataset_name/*.parquet" > /dev/null; then
-			echo "No Parquet files found in $DATA_DIR/$dataset_name. Download the $dataset_name dataset there first." >&2
+			echo "No Parquet files found in $DATA_DIR/$dataset_name. Download the $dataset_name dataset there first, or pass only the datasets you have, e.g. $0 redd." >&2
 			exit 1
 		fi
 	done

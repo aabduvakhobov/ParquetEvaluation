@@ -33,8 +33,9 @@ The C++ build downloads and compiles the Arrow C++ version used in the paper by 
 ```bash
 ./scripts/run_native_writers.sh redd                        # build all writers, run them on data/<dataset>/
 ./scripts/run_low_level_rust_with_default_configs.sh redd   # C++/Go/Java/Rust defaults emulated in low-level-writer, then queried
-./scripts/run_default_writers.sh            # cpp go java rust; ingestion times in scripts/default_writers.logs
 ```
+
+Both scripts take the names of the datasets to run on: one or more of `blued`, `greend`, `redd` and `neon_wind`. Pass only the datasets you have in `<repo>/data/`. Without dataset names, they run on all four and stop if one is missing.
 
 The C++, Go, Java and Rust (`default-rust-writer`) writers take two more arguments, the dataset name and a SQLite database path:
 
