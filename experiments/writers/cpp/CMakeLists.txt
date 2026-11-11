@@ -151,6 +151,22 @@ target_compile_definitions(sqlite3 PRIVATE SQLITE_THREADSAFE=0 SQLITE_OMIT_LOAD_
 option(PARQUET_WRITER_STATIC "Link Arrow, Parquet and the C++ runtime statically" ON)
 option(PARQUET_WRITER_FULLY_STATIC "Also link glibc statically (requires PARQUET_WRITER_STATIC)" ON)
 
+# Before glibc 2.34, libpthread is a separate library whose weak symbols are not resolved correctly in
+# a static link, so a fully static binary that starts threads (Arrow's thread pools, mimalloc) can crash
+# with a segmentation fault (e.g. Ubuntu 20.04, glibc 2.31). Keep glibc dynamic there.
+include(CheckCSourceCompiles)
+check_c_source_compiles("
+#include <features.h>
+#if !defined(__GLIBC__) || __GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 34)
+#error glibc older than 2.34
+#endif
+int main(void) { return 0; }" PARQUET_WRITER_GLIBC_2_34_OR_NEWER)
+if(PARQUET_WRITER_FULLY_STATIC AND NOT PARQUET_WRITER_GLIBC_2_34_OR_NEWER)
+    message(STATUS "glibc is older than 2.34: linking glibc dynamically, because a fully static "
+                   "binary with threads can crash. Arrow, Parquet and the C++ runtime stay static.")
+    set(PARQUET_WRITER_FULLY_STATIC OFF CACHE BOOL "Also link glibc statically (requires PARQUET_WRITER_STATIC)" FORCE)
+endif()
+
 find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 message(STATUS "Using Arrow ${Arrow_VERSION} from ${Arrow_DIR}")
