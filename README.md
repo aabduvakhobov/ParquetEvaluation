@@ -119,7 +119,7 @@ The following table shows the summary of datasets used in the experiments.
 | BLUED | ~6.9B | ~83 μs | 5 | 62 GB | 1 week | 32-bit float | 0 |
 | GREEND | ~110M | 1 s | 30 | 1.2 GB | 1 year | 32-bit float | ~71 |
 | REDD | ~83M | ~110 ms | 1 | 651 MB | ~42 days | 32-bit float | 0 |
-| NEON Wind | ~198M | ~2 m | 3 | 2 GB | ~7 years | 32-bit float | 0 |
+| 2D-Wind | ~198M | ~2 m | 3 | 2 GB | ~7 years | 32-bit float | 0 |
 
 You can find pre-processed versions of all the datasets from the [Harvard Dataverse repository](https://doi.org/10.7910/DVN/SZAHLT).
 
@@ -134,10 +134,10 @@ data/
 ├── redd/         *.parquet
 └── neon_wind/    *.parquet
 ```
-Please note that we neon_wind for 2D-Wind dataset to ensure consistency and avoid errors across all implementations.
+Please note that in the code, name  neon_wind is used to denote 2D-Wind dataset to ensure consistency and avoid errors across all implementations.
 For example, the REDD files go in `data/redd/`. If you keep the datasets elsewhere, a symbolic link works too: `ln -s /path/to/redd data/redd`. The `data/` directory is ignored by git.
 
-The downloaded BLUED and 2D-Wind (NEON Wind) datasets consist of many Parquet files. After downloading them, merge each into a single Parquet file with [data_preparation/common/merge_parquet_files.py](data_preparation/common/merge_parquet_files.py), and write the merged file to the dataset's directory under `data/`. Download them to a directory outside `data/`, so that only the merged file ends up in `data/<dataset>/`:
+The downloaded BLUED and 2D-Wind (aka NEON Wind) datasets consist of many Parquet files. After downloading them, merge each into a single Parquet file with [data_preparation/common/merge_parquet_files.py](data_preparation/common/merge_parquet_files.py), and write the merged file to the dataset's directory under `data/`. Download them to a directory outside `data/`, so that only the merged file ends up in `data/<dataset>/`:
 
 ```bash
 python data_preparation/common/merge_parquet_files.py /path/to/downloaded/blued blued data/blued
